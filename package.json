@@ -1,6 +1,1 @@
-{
-  "name": "oleg-konstrukt-bot",
-  "version": "1.0.0",
-  "description": "Telegram бот «Конструкт» — запросы в УК по 402-ФЗ",
-  "private": true
-}
+{"name":"oleg-konstrukt-bot","version":"1.0.0","private":true}
