@@ -2,12 +2,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const token = process.env.BOT_TOKEN;
-  const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.URL;
+  const base = process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
 
   if (!token) return res.status(500).json({ error: 'BOT_TOKEN not set' });
-  if (!base) return res.status(500).json({ error: 'URL not set' });
+  if (!base) return res.status(500).json({ error: 'BASE_URL not set. Add in Vercel: BASE_URL=https://твой-проект.vercel.app' });
 
-  const webhookUrl = `${base}/api/webhook`;
+  const webhookUrl = base.includes('http') ? base.replace(/\/$/, '') + '/api/webhook' : `https://${base}/api/webhook`;
   const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
