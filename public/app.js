@@ -1099,7 +1099,7 @@ async function renderProfile() {
   if (!state.user) {
     appRoot.innerHTML = `
       <div class="landing">
-        <section id="profile" class="section hero-section">
+        <section id="profile" class="section hero-section section-visible">
           <div class="neo-card section-shell">
             <h2 class="section-title">${t.title}</h2>
             <div class="profile-tabs profile-tabs-split">
@@ -1142,7 +1142,7 @@ async function renderProfile() {
   state.isLoading = true;
   appRoot.innerHTML = `
     <div class="landing">
-      <section id="profile" class="section hero-section">
+      <section id="profile" class="section hero-section section-visible">
         <div class="neo-card section-shell">
           <div class="profile-header" style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(207,216,231,0.9)">
             <div class="profile-avatar-large" style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-soft);position:relative">
