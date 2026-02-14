@@ -25,6 +25,7 @@ const state = {
   withExpert: false,
   checkoutOrderId: null,
   isLoading: false,
+  profileTab: "drafts",
 };
 
 // ========== AUTH (TMA + Telegram Widget → Supabase, 1 аккаунт по telegram_id) ==========
@@ -371,10 +372,13 @@ const I18N = {
         "Описывает, как обрабатываются персональные данные пользователей сервиса. Сейчас это заглушка, чтобы показать наличие раздела и ссылок в футере.",
     },
     profile: {
-      title: "Мои черновики",
+      title: "Профиль",
+      tabDrafts: "Черновики",
+      tabOrders: "Заказы",
       subtitle: "Сохранённые запросы в УК. Нажмите, чтобы продолжить редактирование.",
       empty: "Нет сохранённых черновиков.",
-      loginHint: "Войдите, чтобы сохранять и видеть черновики.",
+      ordersEmpty: "Нет заказов.",
+      loginHint: "Войдите, чтобы сохранять черновики и видеть заказы.",
       loadDraft: "Открыть",
       deleteDraft: "Удалить",
     },
@@ -536,10 +540,13 @@ const I18N = {
       enterEmail: "Enter email to link the order (demo):",
     },
     profile: {
-      title: "My drafts",
+      title: "Profile",
+      tabDrafts: "Drafts",
+      tabOrders: "Orders",
       subtitle: "Saved requests to MC. Click to continue editing.",
       empty: "No saved drafts.",
-      loginHint: "Log in to save and view drafts.",
+      ordersEmpty: "No orders.",
+      loginHint: "Log in to save drafts and view orders.",
       loadDraft: "Open",
       deleteDraft: "Delete",
     },
@@ -1104,15 +1111,37 @@ async function renderProfile() {
     return;
   }
 
+  const firstLetter = (state.user.first_name || state.user.username || 'U')[0].toUpperCase();
+  const photoUrl = state.user.photo_url;
+  const displayName = state.user.first_name || state.user.username || (state.lang === 'ru' ? 'Пользователь' : 'User');
+  const username = state.user.username ? '@' + state.user.username : '';
+
   state.isLoading = true;
   appRoot.innerHTML = `
     <div class="landing">
       <section id="profile" class="section hero-section">
         <div class="neo-card section-shell">
-          <h2 class="section-title">${t.title}</h2>
-          <p class="section-subtitle">${t.subtitle}</p>
-          <div id="profile-drafts-list" class="profile-drafts-list">
-            <p class="small muted-text">${state.lang === 'ru' ? 'Загрузка...' : 'Loading...'}</p>
+          <div class="profile-header" style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(207,216,231,0.9)">
+            <div class="profile-avatar-large" style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--bg-soft);position:relative">
+              <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;color:var(--accent)">${firstLetter}</span>
+              ${photoUrl ? `<img src="${photoUrl}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.remove()">` : ''}
+            </div>
+            <div>
+              <div class="profile-name" style="font-size:18px;font-weight:600;margin-bottom:4px">${displayName}</div>
+              ${username ? `<div class="profile-username small muted-text">${username}</div>` : ''}
+            </div>
+          </div>
+          <div class="profile-tabs" style="display:flex;gap:8px;margin-bottom:20px">
+            <button class="profile-tab-btn ${state.profileTab === 'drafts' ? 'active' : ''}" data-tab="drafts">${t.tabDrafts}</button>
+            <button class="profile-tab-btn ${state.profileTab === 'orders' ? 'active' : ''}" data-tab="orders">${t.tabOrders}</button>
+          </div>
+          <div id="profile-tab-content">
+            <div id="profile-drafts-list" class="profile-drafts-list" style="${state.profileTab === 'drafts' ? '' : 'display:none'}">
+              <p class="small muted-text">${state.lang === 'ru' ? 'Загрузка...' : 'Loading...'}</p>
+            </div>
+            <div id="profile-orders-list" class="profile-orders-list" style="${state.profileTab === 'orders' ? '' : 'display:none'}">
+              <p class="small muted-text">${t.ordersEmpty}</p>
+            </div>
           </div>
         </div>
       </section>
@@ -1160,6 +1189,25 @@ async function renderProfile() {
       });
     }
   }
+
+  document.querySelectorAll('.profile-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      if (tab === state.profileTab) return;
+      state.profileTab = tab;
+      const draftsEl = document.getElementById('profile-drafts-list');
+      const ordersEl = document.getElementById('profile-orders-list');
+      document.querySelectorAll('.profile-tab-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (tab === 'drafts') {
+        if (draftsEl) draftsEl.style.display = '';
+        if (ordersEl) ordersEl.style.display = 'none';
+      } else {
+        if (draftsEl) draftsEl.style.display = 'none';
+        if (ordersEl) ordersEl.style.display = '';
+      }
+    });
+  });
 }
 
 // ========== BLOG PAGE ==========
@@ -1271,7 +1319,7 @@ function updateProfileUI() {
           ${state.user.username ? `<div class="profile-info-username">@${state.user.username}</div>` : ''}
         </div>
       </div>
-      <button class="profile-menu-item" onclick="goToDashboard()">${state.lang === 'ru' ? 'Мои документы' : 'My documents'}</button>
+      <button class="profile-menu-item" onclick="goToDashboard()">${state.lang === 'ru' ? 'Профиль' : 'Profile'}</button>
       <button class="profile-menu-item logout" onclick="logout()">${state.lang === 'ru' ? 'Выйти' : 'Logout'}</button>
     `;
   } else {
