@@ -1141,8 +1141,11 @@ html {
   }
 
   .header-inner {
-    position: relative;
     gap: 8px;
+  }
+
+  .nav-dropdown-wrap {
+    position: relative;
   }
 
   .nav-toggle {
@@ -1152,9 +1155,9 @@ html {
   .nav {
     position: absolute;
     top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     margin-top: 8px;
-    right: 0;
-    left: auto;
     min-width: 180px;
     display: none;
     flex-direction: column;
