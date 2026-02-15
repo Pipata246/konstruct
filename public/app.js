@@ -342,6 +342,15 @@ async function addBlogComment(postId, text) {
   return data.comment;
 }
 
+async function deleteBlogComment(commentId) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API_BASE_BLOG + '/api/blog?commentId=' + encodeURIComponent(commentId), { method: 'DELETE', headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка');
+  return data;
+}
+
 async function updateBlogComment(commentId, text) {
   const payload = { commentId, text: String(text || '').trim() };
   if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) payload.initData = window.Telegram.WebApp.initData;
@@ -558,8 +567,10 @@ const I18N = {
       commentButton: "Отправить",
       loginToComment: "Войдите, чтобы комментировать",
       editComment: "Редактировать",
+      deleteComment: "Удалить",
       saveComment: "Сохранить",
       cancelComment: "Отмена",
+      commentDeleted: "Комментарий удалён",
       editPost: "Редактировать",
       deletePost: "Удалить",
       confirmDelete: "Удалить этот пост?",
@@ -849,8 +860,10 @@ const I18N = {
       commentButton: "Send",
       loginToComment: "Log in to comment",
       editComment: "Edit",
+      deleteComment: "Delete",
       saveComment: "Save",
       cancelComment: "Cancel",
+      commentDeleted: "Comment deleted",
       editPost: "Edit",
       deletePost: "Delete",
       confirmDelete: "Delete this post?",
@@ -2460,13 +2473,17 @@ function renderBlog() {
         ? `<p class="small muted-text" style="margin:0 0 12px">${t.commentsEmpty}</p>`
         : comments.map(c => {
           const canEdit = canEditComment(c);
+          const canDelete = state.isAdmin;
+          const btns = [];
+          if (canEdit) btns.push(`<button type="button" class="secondary-btn blog-edit-comment" data-comment-id="${c.id}" data-post-id="${post.id}" style="flex-shrink:0;padding:4px 10px;font-size:12px">${t.editComment}</button>`);
+          if (canDelete) btns.push(`<button type="button" class="secondary-btn blog-delete-comment" data-comment-id="${c.id}" data-post-id="${post.id}" style="flex-shrink:0;padding:4px 10px;font-size:12px">${t.deleteComment}</button>`);
           return `<div class="blog-comment-item" data-comment-id="${c.id}" data-post-id="${post.id}" style="background:var(--bg-elevated);border-radius:8px;padding:12px 16px;margin-bottom:8px">
             <div class="blog-comment-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
               <div style="flex:1;min-width:0">
                 <div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:4px">${escapeHtml(c.author_name || '—')}</div>
                 <div class="blog-comment-body" style="font-size:14px;line-height:1.5">${escapeHtml(c.text)}</div>
               </div>
-              ${canEdit ? `<button type="button" class="secondary-btn blog-edit-comment" data-comment-id="${c.id}" data-post-id="${post.id}" style="flex-shrink:0;padding:4px 10px;font-size:12px">${t.editComment}</button>` : ''}
+              ${btns.length ? `<div style="display:flex;gap:6px;flex-shrink:0">${btns.join('')}</div>` : ''}
             </div>
           </div>`;
         }).join('');
@@ -2521,6 +2538,21 @@ function renderBlog() {
         try {
           await deleteBlogPost(postId);
           alert(t.postDeleted);
+          renderBlog();
+        } catch (e) { alert(e.message); }
+      });
+    });
+
+    document.querySelectorAll('.blog-delete-comment').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const commentId = btn.getAttribute('data-comment-id');
+        const postId = btn.getAttribute('data-post-id');
+        if (!commentId || !confirm(ru ? 'Удалить комментарий?' : 'Delete comment?')) return;
+        try {
+          await deleteBlogComment(commentId);
+          const post = state.blogPosts.find(p => p.id === postId);
+          if (post) post.comments = await fetchBlogComments(postId);
+          alert(t.commentDeleted);
           renderBlog();
         } catch (e) { alert(e.message); }
       });

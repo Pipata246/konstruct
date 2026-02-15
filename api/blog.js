@@ -187,6 +187,13 @@ module.exports = async function handler(req, res) {
     if (req.method === 'DELETE') {
       const user = await resolveUserId({ body: {}, headers: req.headers, query });
       if (!user) return res.status(401).json({ error: 'Необходима авторизация' });
+      const commentId = query.commentId;
+      if (commentId) {
+        if (!(await isAdmin(supabase, user.id))) return res.status(403).json({ error: 'Только админ может удалять комментарии' });
+        const { error } = await supabase.from('blog_comments').delete().eq('id', commentId);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true });
+      }
       if (!(await isAdmin(supabase, user.id))) return res.status(403).json({ error: 'Только админ может удалять посты' });
       const id = query.id || query.postId;
       if (!id) return res.status(400).json({ error: 'Укажите id поста' });
