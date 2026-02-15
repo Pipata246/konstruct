@@ -590,7 +590,6 @@ const I18N = {
       bodyEn: "Текст (EN)",
       addPhoto: "Фото",
       addVideo: "Видео",
-      orPasteUrl: "или вставьте URL",
       publish: "Опубликовать",
       postCreated: "Пост опубликован",
       backLink: "На главную",
@@ -889,7 +888,6 @@ const I18N = {
       bodyEn: "Text (EN)",
       addPhoto: "Photo",
       addVideo: "Video",
-      orPasteUrl: "or paste URL",
       publish: "Publish",
       postCreated: "Post published",
       backLink: "Back to Home",
@@ -2379,8 +2377,6 @@ function openBlogPostModal(t, ru) {
         <div class="field">
           <div class="stacked-label">${t.addPhoto} / ${t.addVideo}</div>
           <input type="file" id="blog-media-input" accept="image/*,video/*" multiple />
-          <div class="small muted-text" style="margin-top:4px">${t.orPasteUrl}</div>
-          <input type="url" id="blog-media-url" class="input" placeholder="https://..." style="margin-top:4px" />
           <div id="blog-media-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:16px">
@@ -2398,7 +2394,6 @@ function openBlogPostModal(t, ru) {
   let media = [];
   const form = overlay.querySelector('#blog-create-form');
   const mediaInput = overlay.querySelector('#blog-media-input');
-  const mediaUrl = overlay.querySelector('#blog-media-url');
   const preview = overlay.querySelector('#blog-media-preview');
 
   if (mediaInput) mediaInput.addEventListener('change', async (e) => {
@@ -2410,16 +2405,6 @@ function openBlogPostModal(t, ru) {
       } catch (err) { alert(err.message); }
     }
     mediaInput.value = '';
-  });
-  if (mediaUrl) mediaUrl.addEventListener('keypress', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const url = mediaUrl.value.trim();
-    if (!url) return;
-    const type = /\.(mp4|webm|ogg|mov)$/i.test(url) ? 'video' : 'photo';
-    media.push({ type, url });
-    preview.innerHTML += type === 'video' ? `<video controls style="width:80px;height:60px;object-fit:cover;border-radius:6px" src="${escapeHtml(url)}"></video>` : `<img src="${escapeHtml(url)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px" alt="" />`;
-    mediaUrl.value = '';
   });
 
   form?.addEventListener('submit', async (e) => {
@@ -2460,8 +2445,6 @@ function openBlogEditModal(post, t, ru) {
         <div class="field">
           <div class="stacked-label">${t.addPhoto} / ${t.addVideo}</div>
           <input type="file" id="blog-edit-media-input" accept="image/*,video/*" multiple />
-          <div class="small muted-text" style="margin-top:4px">${t.orPasteUrl}</div>
-          <input type="url" id="blog-edit-media-url" class="input" placeholder="https://..." style="margin-top:4px" />
           <div id="blog-edit-media-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:16px">
@@ -2479,7 +2462,6 @@ function openBlogEditModal(post, t, ru) {
   let media = Array.isArray(post.media) ? post.media.map(m => ({ type: m.type || 'photo', url: m.url || m.src })) : [];
   const form = overlay.querySelector('#blog-edit-form');
   const mediaInput = overlay.querySelector('#blog-edit-media-input');
-  const mediaUrl = overlay.querySelector('#blog-edit-media-url');
   const preview = overlay.querySelector('#blog-edit-media-preview');
   (post.media || []).forEach(m => {
     const url = m.url || m.src;
@@ -2496,16 +2478,6 @@ function openBlogEditModal(post, t, ru) {
       } catch (err) { alert(err.message); }
     }
     mediaInput.value = '';
-  });
-  if (mediaUrl) mediaUrl.addEventListener('keypress', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const url = mediaUrl.value.trim();
-    if (!url) return;
-    const type = /\.(mp4|webm|ogg|mov)$/i.test(url) ? 'video' : 'photo';
-    media.push({ type, url });
-    preview.innerHTML += type === 'video' ? `<video controls style="width:80px;height:60px;object-fit:cover;border-radius:6px" src="${escapeHtml(url)}"></video>` : `<img src="${escapeHtml(url)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px" alt="" />`;
-    mediaUrl.value = '';
   });
 
   form?.addEventListener('submit', async (e) => {
@@ -2871,7 +2843,11 @@ function initShell() {
   });
 
   window.addEventListener("hashchange", () => {
-    window.scrollTo(0, 0);
+    const hash = window.location.hash || "";
+    const scrollToTop = hash === "" || hash === "#" || hash === "#hero" ||
+      hash === "#legal" || hash === "#legal-offer" || hash === "#legal-privacy" ||
+      hash === "#blog" || hash.startsWith("#blog/");
+    if (scrollToTop) window.scrollTo(0, 0);
     render();
   });
 
