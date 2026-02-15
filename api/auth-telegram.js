@@ -67,6 +67,31 @@ function parseUserFromInitData(initData) {
   }
 }
 
+async function getUserPhotoPath(userId) {
+  if (!BOT_TOKEN) return null;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUserProfilePhotos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, limit: 1 }),
+    });
+    const data = await r.json();
+    if (!data.ok || !data.result?.photos?.length) return null;
+    const sizes = data.result.photos[0];
+    const largest = sizes[sizes.length - 1];
+    const fr = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: largest.file_id }),
+    });
+    const fileData = await fr.json();
+    if (!fileData.ok || !fileData.result?.file_path) return null;
+    return fileData.result.file_path;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,6 +114,10 @@ module.exports = async function handler(req, res) {
       if (!verifyInitData(initData)) return res.status(401).json({ error: 'Invalid initData' });
       user = parseUserFromInitData(initData);
       if (!user) return res.status(400).json({ error: 'No user in initData' });
+      if (!user.photo_url) {
+        const photoPath = await getUserPhotoPath(user.id);
+        if (photoPath) user.photo_url = photoPath;
+      }
     } else if (type === 'widget' && widgetData) {
       if (!verifyWidgetHash(widgetData)) return res.status(401).json({ error: 'Invalid widget hash' });
       user = {
