@@ -894,106 +894,96 @@ function getLetterPreview() {
   return getLetterPreviewFromData(state.constructorForm);
 }
 
+function escapeHtml(s) {
+  if (s == null || s === '') return '';
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
 function downloadOrderPdf(order) {
   const f = order?.data || state.constructorForm;
   if (!f) return;
-  try {
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF) {
-      alert(state.lang === 'ru' ? 'Библиотека PDF не загружена' : 'PDF library not loaded');
-      return;
-    }
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pageW = 210;
-    const pageH = 297;
-    const margin = 20;
-    const contentW = pageW - margin * 2;
-    let y = 20;
-
-    doc.setFontSize(10);
-
-    // Шапка справа сверху
-    const headerLines = [
-      state.lang === 'ru' ? 'Руководителю' : 'To the head of',
-      f.ukName || '___________',
-      f.ukAddress || '___________',
-      '',
-      (state.lang === 'ru' ? 'От ' : 'From ') + (f.fullName || '___________'),
-      state.lang === 'ru' ? 'Проживающего по адресу' : 'Residing at',
-      f.address || '___________',
-      ...(f.emailForReply ? [(state.lang === 'ru' ? 'Тел./Email: ' : 'Tel/Email: ') + f.emailForReply] : []),
-    ];
-    const headerText = headerLines.join('\n');
-    const headerSplit = doc.splitTextToSize(headerText, 70);
-    doc.text(headerSplit, pageW - margin, y, { align: 'right' });
-    y += headerSplit.length * 5 + 10;
-
-    // ЗАЯВЛЕНИЕ по центру
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(state.lang === 'ru' ? 'ЗАЯВЛЕНИЕ' : 'APPLICATION', pageW / 2, y, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    y += 12;
-
-    // Основной текст слева
-    const chosenServices = Object.entries(f.services || {})
-      .filter(([, v]) => v)
-      .map(([k]) => {
-        switch (k) {
-          case 'content': return state.lang === 'ru' ? 'содержание и ремонт жилья' : 'housing maintenance';
-          case 'heating': return state.lang === 'ru' ? 'отопление' : 'heating';
-          case 'water': return state.lang === 'ru' ? 'водоснабжение' : 'water supply';
-          case 'repair': return state.lang === 'ru' ? 'ремонт общедомового имущества' : 'common property repair';
-          default: return '';
-        }
-      })
-      .filter(Boolean)
-      .map((s) => '– ' + s)
-      .join('\n');
-
-    const intro = state.lang === 'ru'
-      ? 'В соответствии с Федеральным законом № 402‑ФЗ «О бухгалтерском учёте» требую предоставить и направить мне по указанному выше адресу правоустанавливающие документы и сведения, подтверждающие начисления и расходы по следующим услугам:'
-      : 'In accordance with Federal Law No. 402‑FZ "On Accounting" I demand to be provided with and sent to the address specified above the legal documents and information confirming charges and expenses for the following services:';
-    const introLines = doc.splitTextToSize(intro, contentW);
-    doc.text(introLines, margin, y);
-    y += introLines.length * 5 + 4;
-
-    const listText = chosenServices || (state.lang === 'ru' ? 'перечень услуг' : 'list of services');
-    const listLines = doc.splitTextToSize(listText, contentW);
-    doc.text(listLines, margin, y);
-    y += listLines.length * 5 + 6;
-
-    const periodText = (state.lang === 'ru'
-      ? 'Требую предоставить расшифровку начислений за период: '
-      : 'I demand a breakdown of charges for the period: ') + (f.period || '___________') + '.';
-    const periodLines = doc.splitTextToSize(periodText, contentW);
-    doc.text(periodLines, margin, y);
-    y += periodLines.length * 5 + 4;
-
-    const legalText = state.lang === 'ru'
-      ? 'Требую предоставить информацию о законных основаниях взимания денежных средств и ведения деятельности по указанному адресу.'
-      : 'I demand information on the legal grounds for collecting funds and conducting activities at the specified address.';
-    const legalLines = doc.splitTextToSize(legalText, contentW);
-    doc.text(legalLines, margin, y);
-    y += legalLines.length * 5 + 4;
-
-    const sendText = state.lang === 'ru'
-      ? 'Информацию прошу направить в письменном виде по адресу проживания и (или) на электронную почту, указанную в обращении.'
-      : 'Please send the information in writing to my residential address and/or to the email address indicated in this request.';
-    const sendLines = doc.splitTextToSize(sendText, contentW);
-    doc.text(sendLines, margin, y);
-    y += sendLines.length * 5 + 12;
-
-    // Подвал: Дата слева, Подпись справа
-    doc.text(state.lang === 'ru' ? 'Дата ________' : 'Date ________', margin, y);
-    doc.text(state.lang === 'ru' ? 'Подпись ________' : 'Signature ________', pageW - margin, y, { align: 'right' });
-
-    const name = (f.ukName || 'Zapros').replace(/[^a-zA-Zа-яА-Я0-9]/g, '_').slice(0, 30);
-    doc.save(`Zayavlenie_UK_${name}_${new Date().toISOString().slice(0, 10)}.pdf`);
-  } catch (e) {
-    alert(state.lang === 'ru' ? 'Ошибка создания PDF' : 'PDF creation error');
+  if (typeof window.html2pdf === 'undefined') {
+    alert(state.lang === 'ru' ? 'Библиотека PDF не загружена' : 'PDF library not loaded');
+    return;
   }
+  const ru = state.lang === 'ru';
+  const chosenServices = Object.entries(f.services || {})
+    .filter(([, v]) => v)
+    .map(([k]) => {
+      switch (k) {
+        case 'content': return ru ? 'содержание и ремонт жилья' : 'housing maintenance';
+        case 'heating': return ru ? 'отопление' : 'heating';
+        case 'water': return ru ? 'водоснабжение' : 'water supply';
+        case 'repair': return ru ? 'ремонт общедомового имущества' : 'common property repair';
+        default: return '';
+      }
+    })
+    .filter(Boolean)
+    .map((s) => '– ' + s)
+    .join('<br>');
+
+  const headerHtml = `
+    <div style="text-align:right; font-size:11pt; line-height:1.4; margin-bottom:14px;">
+      ${ru ? 'Руководителю' : 'To the head of'}<br>
+      ${escapeHtml(f.ukName || '___________')}<br>
+      ${escapeHtml(f.ukAddress || '___________')}<br>
+      <br>
+      ${ru ? 'От ' : 'From '}${escapeHtml(f.fullName || '___________')}<br>
+      ${ru ? 'Проживающего по адресу' : 'Residing at'}<br>
+      ${escapeHtml(f.address || '___________')}<br>
+      ${f.emailForReply ? (ru ? 'Тел./Email: ' : 'Tel/Email: ') + escapeHtml(f.emailForReply) : ''}
+    </div>`;
+  const titleHtml = `<div style="text-align:center; font-size:13pt; font-weight:bold; margin-bottom:14px;">${ru ? 'ЗАЯВЛЕНИЕ' : 'APPLICATION'}</div>`;
+  const intro = ru
+    ? 'В соответствии с Федеральным законом № 402‑ФЗ «О бухгалтерском учёте» требую предоставить и направить мне по указанному выше адресу правоустанавливающие документы и сведения, подтверждающие начисления и расходы по следующим услугам:'
+    : 'In accordance with Federal Law No. 402‑FZ "On Accounting" I demand to be provided with and sent to the address specified above the legal documents and information confirming charges and expenses for the following services:';
+  const listText = chosenServices || (ru ? 'перечень услуг' : 'list of services');
+  const periodText = (ru ? 'Требую предоставить расшифровку начислений за период: ' : 'I demand a breakdown of charges for the period: ') + escapeHtml(f.period || '___________') + '.';
+  const legalText = ru
+    ? 'Требую предоставить информацию о законных основаниях взимания денежных средств и ведения деятельности по указанному адресу.'
+    : 'I demand information on the legal grounds for collecting funds and conducting activities at the specified address.';
+  const sendText = ru
+    ? 'Информацию прошу направить в письменном виде по адресу проживания и (или) на электронную почту, указанную в обращении.'
+    : 'Please send the information in writing to my residential address and/or to the email address indicated in this request.';
+
+  const bodyHtml = `
+    <div style="font-size:11pt; line-height:1.5; text-align:left;">
+      <p style="margin:0 0 8px;">${intro}</p>
+      <p style="margin:0 0 10px;">${listText}</p>
+      <p style="margin:0 0 8px;">${periodText}</p>
+      <p style="margin:0 0 8px;">${legalText}</p>
+      <p style="margin:0 0 20px;">${sendText}</p>
+      <p style="margin:0; display:flex; justify-content:space-between;">
+        <span>${ru ? 'Дата ________' : 'Date ________'}</span>
+        <span>${ru ? 'Подпись ________' : 'Signature ________'}</span>
+      </p>
+    </div>`;
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'width:210mm; padding:20mm; background:#fff; font-family:Arial,sans-serif; color:#000; box-sizing:border-box; position:fixed; left:0; top:0; visibility:hidden; pointer-events:none; z-index:-1;';
+  wrap.innerHTML = headerHtml + titleHtml + bodyHtml;
+  document.body.appendChild(wrap);
+
+  const name = (f.ukName || 'Zapros').replace(/[^a-zA-Zа-яА-Я0-9]/g, '_').slice(0, 30);
+  const filename = `Zayavlenie_UK_${name}_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  window.html2pdf()
+    .set({
+      margin: 0,
+      filename,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4' },
+    })
+    .from(wrap)
+    .save()
+    .then(() => wrap.remove())
+    .catch((e) => {
+      wrap.remove();
+      alert(state.lang === 'ru' ? 'Ошибка создания PDF' : 'PDF creation error');
+    });
 }
 
 function openOrderModal(order) {
