@@ -2407,11 +2407,9 @@ async function renderBlog() {
     })
     .join('');
 
-  const addPostBtnHtml = state.isAdmin
-    ? `<button class="blog-add-post-btn" id="blog-add-post-btn" title="${tBlog.createPost}" aria-label="${tBlog.createPost}">
+  const addPostBtnHtml = `<button class="blog-add-post-btn" id="blog-add-post-btn" title="${tBlog.createPost}" aria-label="${tBlog.createPost}">
          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-       </button>`
-    : '';
+       </button>`;
 
   appRoot.innerHTML = `
     <div class="landing blog-page" style="position:relative">
@@ -2429,9 +2427,7 @@ async function renderBlog() {
     </div>
   `;
 
-  if (state.isAdmin) {
-    document.getElementById('blog-add-post-btn')?.addEventListener('click', () => openBlogPostModal(tBlog, ru));
-  }
+  document.getElementById('blog-add-post-btn')?.addEventListener('click', () => openBlogPostModal(tBlog, ru));
 
   document.querySelectorAll('.btn-add-comment').forEach((btn) => {
     btn.addEventListener('click', () => {
