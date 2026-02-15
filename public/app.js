@@ -312,60 +312,92 @@ async function deleteOrderFromApi(id) {
   if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
 }
 
-// ========== BLOG (демо) ==========
+// ========== BLOG (API + БД) ==========
+
+async function blogApi(method, body = {}, query = '') {
+  const headers = { 'Content-Type': 'application/json' };
+  let url = API_BASE + '/api/blog' + (query ? '?' + query : '');
+  const payload = { ...body };
+  if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) {
+    payload.initData = window.Telegram.WebApp.initData;
+  } else if (state.token) {
+    headers['Authorization'] = 'Bearer ' + state.token;
+  }
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: method !== 'GET' ? JSON.stringify(payload) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка запроса');
+  return data;
+}
 
 async function fetchBlogPosts() {
-  state.blogPosts = getDemoBlogPosts();
+  const data = await blogApi('GET');
+  state.blogPosts = data.posts || [];
   return state.blogPosts;
 }
 
-// ========== DEMO/FALLBACK DATA ==========
-
-function getDemoBlogPosts() {
-  return [
-    {
-      id: "402fz",
-      title: {
-        ru: "Как составить запрос по 402-ФЗ",
-        en: "How to create a request under 402-FZ",
-      },
-      body: {
-        ru: "Федеральный закон № 402-ФЗ регулирует вопросы бухгалтерского учёта и отчётности. При составлении официального запроса важно правильно сослаться на закон и чётко сформулировать цель обращения.",
-        en: "Federal Law No. 402-FZ regulates accounting and reporting issues. When drafting an official request, it is important to correctly reference the law and clearly state the purpose of your inquiry.",
-      },
-      date: "2026-01-15",
-      comments: [
-        {
-          author: "Анна",
-          text: "Статья помогла впервые грамотно написать запрос в УК.",
-        },
-      ],
-    },
-    {
-      id: "uk-rights",
-      title: {
-        ru: "Права жильцов при общении с УК",
-        en: "Residents' rights when dealing with HOA",
-      },
-      body: {
-        ru: "Каждый собственник жилья имеет право запрашивать информацию о расходовании средств, проводимых работах и тарифах. Управляющая компания обязана предоставить ответ в установленные законом сроки.",
-        en: "Every homeowner has the right to request information about expenditures, performed works, and tariffs. The management company is required to provide a response within the legally established timeframe.",
-      },
-      date: "2026-02-01",
-      comments: [],
-    },
-  ];
+async function fetchBlogComments(postId) {
+  const data = await blogApi('GET', {}, 'postId=' + encodeURIComponent(postId));
+  return data.comments || [];
 }
 
-function addCommentLocal(postId, text) {
-  if (!text.trim()) return;
-  const post = state.blogPosts.find((p) => p.id === postId);
-  if (!post) return;
-  post.comments.push({
-    author: state.user ? state.user.first_name || state.user.username : (state.lang === "ru" ? "Гость" : "Guest"),
-    text: text.trim(),
+async function createBlogPost(postData) {
+  const payload = { ...postData };
+  if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) payload.initData = window.Telegram.WebApp.initData;
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API_BASE + '/api/blog', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
   });
-  render();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка');
+  return data.post;
+}
+
+async function addBlogComment(postId, text) {
+  const payload = { postId, text: String(text || '').trim() };
+  if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) payload.initData = window.Telegram.WebApp.initData;
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API_BASE + '/api/blog', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка');
+  return data.comment;
+}
+
+async function uploadBlogMedia(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      const payload = { file: base64, filename: file.name, type: file.type.startsWith('video/') ? 'video' : 'photo' };
+      if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) payload.initData = window.Telegram.WebApp.initData;
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+      try {
+        const res = await fetch(API_BASE + '/api/blog-upload', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+        resolve({ type: data.type || 'photo', url: data.url });
+      } catch (e) {
+        reject(e);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ========== I18N ==========
@@ -471,8 +503,18 @@ const I18N = {
     blog: {
       title: "Блог о защите прав и ЖКХ",
       subtitle:
-        "В продукте здесь будет серия статей и кейсов. Сейчас мы показываем одну ключевую публикацию и блок комментариев.",
+        "Статьи и кейсы. Администратор создаёт посты, пользователи комментируют.",
       badge: "Статья",
+      createPost: "Создать пост",
+      titleRu: "Заголовок (RU)",
+      titleEn: "Заголовок (EN)",
+      bodyRu: "Текст (RU)",
+      bodyEn: "Текст (EN)",
+      addPhoto: "Фото",
+      addVideo: "Видео",
+      orPasteUrl: "или вставьте URL",
+      publish: "Опубликовать",
+      postCreated: "Пост опубликован",
       articleTitle: "Как использовать 402‑ФЗ против управляющей компании",
       articleBody:
         "Идея простая: вы не сразу пишете жалобу, а сначала требуете у УК документы по закону о бухгалтерском учёте. Без документов сложно спорить про «завышенные начисления» — поэтому «Конструкт» фокусируется на правильном запросе.",
@@ -753,8 +795,18 @@ const I18N = {
     blog: {
       title: "Blog about housing rights",
       subtitle:
-        "In the product this section will contain a series of articles and cases. For now we show one key article and comments.",
+        "Articles and cases. Admin creates posts, users comment.",
       badge: "Article",
+      createPost: "Create post",
+      titleRu: "Title (RU)",
+      titleEn: "Title (EN)",
+      bodyRu: "Text (RU)",
+      bodyEn: "Text (EN)",
+      addPhoto: "Photo",
+      addVideo: "Video",
+      orPasteUrl: "or paste URL",
+      publish: "Publish",
+      postCreated: "Post published",
       articleTitle: "How to use 402‑FZ against a management company",
       articleBody:
         "The idea is simple: instead of filing a complaint right away, you first request documents from the management company under the accounting law. Without documents it is hard to argue about \"overstated charges\", so Konstruct focuses on the correct request.",
@@ -990,8 +1042,20 @@ async function createOrder() {
   }
 }
 
-function addComment(postId, text) {
-  addCommentLocal(postId, text);
+async function addComment(postId, text) {
+  if (!text || !text.trim()) return;
+  if (!state.user) {
+    alert(state.lang === 'ru' ? 'Войдите, чтобы комментировать' : 'Log in to comment');
+    return;
+  }
+  try {
+    await addBlogComment(postId, text.trim());
+    const post = state.blogPosts.find(p => p.id === postId);
+    if (post) post.comments = await fetchBlogComments(postId);
+    renderBlog();
+  } catch (e) {
+    alert(e.message || (state.lang === 'ru' ? 'Ошибка отправки' : 'Send error'));
+  }
 }
 
 function getRequestDocParts(f, lang) {
@@ -2158,38 +2222,60 @@ function renderLegalPage(type) {
 
 // ========== BLOG PAGE ==========
 
-function renderBlog() {
+async function renderBlog() {
   const tBlog = I18N[state.lang].blog;
   const lang = state.lang;
+  const ru = lang === 'ru';
 
-  const posts = state.blogPosts.length > 0 ? state.blogPosts : getDemoBlogPosts();
+  try {
+    await fetchBlogPosts();
+    for (const post of state.blogPosts) {
+      post.comments = await fetchBlogComments(post.id);
+    }
+  } catch (e) {
+    state.blogPosts = [];
+  }
 
-  const postsHTML = posts
-    .map(
-      (post) => `
+  const formatDate = (d) => (d ? new Date(d).toLocaleDateString(ru ? 'ru-RU' : 'en-US') : '');
+
+  const postsHTML = (state.blogPosts || [])
+    .map((post) => {
+      const title = ru ? (post.title_ru || post.title_en) : (post.title_en || post.title_ru);
+      const body = ru ? (post.body_ru || post.body_en) : (post.body_en || post.body_ru);
+      const media = post.media || [];
+      const mediaHtml = media
+        .map((m) => {
+          if (m.type === 'video') {
+            return `<video controls style="max-width:100%;border-radius:8px;margin:8px 0" src="${escapeHtml(m.url)}"></video>`;
+          }
+          return `<img src="${escapeHtml(m.url)}" alt="" style="max-width:100%;border-radius:8px;margin:8px 0;display:block" loading="lazy">`;
+        })
+        .join('');
+      const comments = post.comments || [];
+      return `
     <article class="neo-card blog-post">
       <div class="blog-post-header">
-        <h2 class="blog-post-title">${post.title[lang] || post.title}</h2>
-        <span class="blog-post-date">${post.date}</span>
+        <h2 class="blog-post-title">${escapeHtml(title)}</h2>
+        <span class="blog-post-date">${formatDate(post.created_at)}</span>
       </div>
-      <p class="blog-post-body">${post.body[lang] || post.body}</p>
-      
+      ${mediaHtml}
+      <p class="blog-post-body" style="white-space:pre-wrap">${escapeHtml(body)}</p>
       <div class="blog-comments-section">
-        <h3 class="comments-title">${tBlog.commentsTitle} (${post.comments.length})</h3>
+        <h3 class="comments-title">${tBlog.commentsTitle} (${comments.length})</h3>
         <div class="comments-list">
           ${
-            post.comments.length === 0
+            comments.length === 0
               ? `<p class="small muted-text">${tBlog.commentsEmpty}</p>`
-              : post.comments
+              : comments
                   .map(
                     (c) => `
               <div class="comment">
-                <div class="comment-author">${c.author}</div>
-                <div class="comment-body">${c.text}</div>
+                <div class="comment-author">${escapeHtml(c.author_name || '—')}</div>
+                <div class="comment-body">${escapeHtml(c.text)}</div>
               </div>
             `
                   )
-                  .join("")
+                  .join('')
           }
         </div>
         <div class="divider"></div>
@@ -2200,29 +2286,139 @@ function renderBlog() {
         <button class="primary-btn btn-add-comment" data-post-id="${post.id}">${tBlog.commentsButton}</button>
       </div>
     </article>
+  `;
+    })
+    .join('');
+
+  const adminFormHtml = state.isAdmin
+    ? `
+    <section class="section">
+      <div class="neo-card">
+        <h3 class="price-title">${tBlog.createPost}</h3>
+        <form id="blog-create-form">
+          <div class="field">
+            <div class="stacked-label">${tBlog.titleRu}</div>
+            <input class="input" name="title_ru" placeholder="${ru ? 'Заголовок на русском' : 'Title in Russian'}" />
+          </div>
+          <div class="field">
+            <div class="stacked-label">${tBlog.titleEn}</div>
+            <input class="input" name="title_en" placeholder="${ru ? 'Заголовок на английском' : 'Title in English'}" />
+          </div>
+          <div class="field">
+            <div class="stacked-label">${tBlog.bodyRu}</div>
+            <textarea class="textarea input" name="body_ru" rows="4" placeholder="${ru ? 'Текст статьи' : 'Article text'}"></textarea>
+          </div>
+          <div class="field">
+            <div class="stacked-label">${tBlog.bodyEn}</div>
+            <textarea class="textarea input" name="body_en" rows="4" placeholder="${ru ? 'Article text' : 'Text in English'}"></textarea>
+          </div>
+          <div class="field">
+            <div class="stacked-label">${tBlog.addPhoto} / ${tBlog.addVideo}</div>
+            <input type="file" id="blog-media-input" accept="image/*,video/*" multiple />
+            <div class="small muted-text" style="margin-top:4px">${tBlog.orPasteUrl}</div>
+            <input type="url" id="blog-media-url" class="input" placeholder="https://..." style="margin-top:4px" />
+            <div id="blog-media-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+          </div>
+          <button type="submit" class="primary-btn">${tBlog.publish}</button>
+        </form>
+      </div>
+    </section>
   `
-    )
-    .join("");
+    : '';
 
   appRoot.innerHTML = `
     <div class="landing blog-page">
       <section class="section blog-hero-section">
         <div class="neo-card">
-          <a href="#" class="back-link">&larr; ${lang === "ru" ? "На главную" : "Back to Home"}</a>
+          <a href="#" class="back-link">&larr; ${ru ? 'На главную' : 'Back to Home'}</a>
           <h1 class="page-title">${tBlog.title}</h1>
           <p class="section-subtitle">${tBlog.subtitle}</p>
         </div>
       </section>
-      
+      ${adminFormHtml}
       <section class="section blog-posts-section">
-        ${postsHTML}
+        ${state.blogPosts.length === 0 ? `<p class="small muted-text">${ru ? 'Пока нет постов.' : 'No posts yet.'}</p>` : postsHTML}
       </section>
     </div>
   `;
 
-  document.querySelectorAll(".btn-add-comment").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const postId = btn.getAttribute("data-post-id");
+  if (state.isAdmin) {
+    const form = document.getElementById('blog-create-form');
+    const mediaInput = document.getElementById('blog-media-input');
+    const mediaPreview = document.getElementById('blog-media-preview');
+    let pendingMedia = [];
+
+    if (mediaInput) {
+      mediaInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        for (const f of files) {
+          try {
+            const m = await uploadBlogMedia(f);
+            pendingMedia.push(m);
+            const el = m.type === 'video'
+              ? `<video controls style="width:80px;height:60px;object-fit:cover;border-radius:6px" src="${escapeHtml(m.url)}"></video>`
+              : `<img src="${escapeHtml(m.url)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px" />`;
+            mediaPreview.innerHTML += el;
+          } catch (err) {
+            alert(err.message);
+          }
+        }
+        mediaInput.value = '';
+      });
+    }
+    const mediaUrlInput = document.getElementById('blog-media-url');
+    if (mediaUrlInput) {
+      mediaUrlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const url = mediaUrlInput.value.trim();
+          if (!url) return;
+          const type = /\.(mp4|webm|ogg|mov)$/i.test(url) ? 'video' : 'photo';
+          pendingMedia.push({ type, url });
+          const el = type === 'video'
+            ? `<video controls style="width:80px;height:60px;object-fit:cover;border-radius:6px" src="${escapeHtml(url)}"></video>`
+            : `<img src="${escapeHtml(url)}" style="width:80px;height:60px;object-fit:cover;border-radius:6px" alt="" />`;
+          if (mediaPreview) mediaPreview.innerHTML += el;
+          mediaUrlInput.value = '';
+        }
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const title_ru = fd.get('title_ru')?.toString().trim() || '';
+        const title_en = fd.get('title_en')?.toString().trim() || '';
+        const body_ru = fd.get('body_ru')?.toString().trim() || '';
+        const body_en = fd.get('body_en')?.toString().trim() || '';
+        if (!title_ru && !title_en) {
+          alert(ru ? 'Укажите заголовок' : 'Enter title');
+          return;
+        }
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        try {
+          await createBlogPost({ title_ru, title_en, body_ru, body_en, media: pendingMedia });
+          alert(tBlog.postCreated);
+          pendingMedia = [];
+          if (mediaPreview) mediaPreview.innerHTML = '';
+          const urlInp = document.getElementById('blog-media-url');
+          if (urlInp) urlInp.value = '';
+          form.reset();
+          renderBlog();
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      });
+    }
+  }
+
+  document.querySelectorAll('.btn-add-comment').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const postId = btn.getAttribute('data-post-id');
       const textarea = document.querySelector(`.comment-input[data-post-id="${postId}"]`);
       if (textarea && textarea.value.trim()) {
         addComment(postId, textarea.value);
@@ -2230,9 +2426,9 @@ function renderBlog() {
     });
   });
 
-  document.querySelector(".back-link")?.addEventListener("click", (e) => {
+  document.querySelector('.back-link')?.addEventListener('click', (e) => {
     e.preventDefault();
-    window.location.hash = "";
+    window.location.hash = '';
     render();
   });
 }
@@ -2417,7 +2613,7 @@ function initShell() {
     render();
   });
 
-  state.blogPosts = getDemoBlogPosts();
+  state.blogPosts = [];
   initProfile();
 
   initAuth().then(() => render());

@@ -1,7 +1,7 @@
 const { Resend } = require('resend');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const CONTACT_EMAIL = 'henson1330@gmail.com';
+const CONTACT_EMAIL = 'practsuveren@yandex.ru';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
