@@ -394,7 +394,11 @@ async function updateBlogPost(id, payload) {
 async function deleteBlogPost(id) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
-  const res = await fetch(API_BASE_BLOG + '/api/blog?id=' + encodeURIComponent(id), { method: 'DELETE', headers });
+  let url = API_BASE_BLOG + '/api/blog?id=' + encodeURIComponent(id);
+  if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) {
+    url += '&initData=' + encodeURIComponent(window.Telegram.WebApp.initData);
+  }
+  const res = await fetch(url, { method: 'DELETE', headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Ошибка');
   return data;
@@ -2430,8 +2434,8 @@ function renderBlog() {
   const t = I18N[state.lang].blog;
   const ru = state.lang === 'ru';
   appRoot.innerHTML = `
-    <div class="blog-page-wrap" style="position:relative;padding:20px 0">
-      <div class="neo-card blog-hero-card" style="position:relative;padding:40px 30px;text-align:center">
+    <div class="blog-page-wrap">
+      <div class="neo-card blog-hero-card blog-hero-card-with-add">
         <button type="button" class="blog-add-btn" id="blog-add-btn" title="${t.createPost}" aria-label="${t.createPost}">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
