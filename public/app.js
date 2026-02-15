@@ -1244,8 +1244,6 @@ function applyLanguageToShell() {
   document.documentElement.lang = state.lang === "ru" ? "ru" : "en";
 
   const navLinks = document.querySelectorAll(".nav-link:not(.admin-nav-link)");
-  const adminLink = document.getElementById("admin-nav-link");
-  if (adminLink) adminLink.textContent = state.lang === "ru" ? "Админ" : "Admin";
   if (navLinks.length >= 5) {
     navLinks[0].textContent = dict.nav.home;
     navLinks[1].textContent = dict.nav.service;
@@ -1264,6 +1262,8 @@ function applyLanguageToShell() {
     const isActive = btn.getAttribute("data-lang") === state.lang;
     btn.classList.toggle("lang-btn-active", isActive);
   });
+
+  updateAdminNav();
 }
 
 // ========== PAGES ==========

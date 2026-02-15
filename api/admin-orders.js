@@ -4,7 +4,6 @@ const { createClient } = require('@supabase/supabase-js');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 function verifyInitData(initData) {
   if (!initData || !BOT_TOKEN) return false;
@@ -75,9 +74,10 @@ async function resolveUserAndTelegramId(req) {
   return { userId, telegramId };
 }
 
-function isAdmin(telegramId) {
-  if (!telegramId) return false;
-  return ADMIN_TELEGRAM_IDS.some(id => String(id) === String(telegramId));
+async function isAdmin(supabase, userId) {
+  if (!userId) return false;
+  const { data } = await supabase.from('users').select('administrator').eq('id', userId).single();
+  return !!data?.administrator;
 }
 
 module.exports = async function handler(req, res) {
@@ -92,17 +92,16 @@ module.exports = async function handler(req, res) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const query = req.query || {};
-    const reqWithQuery = { ...req, body: req.method === 'GET' ? {} : body, query };
-    const { userId, telegramId } = await resolveUserAndTelegramId({
+    const { userId } = await resolveUserAndTelegramId({
       body: req.method === 'GET' ? { initData: query.initData } : body,
       query,
       headers: req.headers,
     });
 
     if (!userId) return res.status(401).json({ error: 'Необходима авторизация' });
-    if (!isAdmin(telegramId)) return res.status(403).json({ error: 'Доступ запрещён' });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!(await isAdmin(supabase, userId))) return res.status(403).json({ error: 'Доступ запрещён' });
 
     if (req.method === 'GET') {
       const { data: orders, error } = await supabase
