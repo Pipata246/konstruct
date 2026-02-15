@@ -324,6 +324,24 @@ async function fetchBlogPosts() {
   return state.blogPosts;
 }
 
+async function fetchBlogComments(postId) {
+  const res = await fetch(API_BASE_BLOG + '/api/blog?postId=' + encodeURIComponent(postId));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка');
+  return data.comments || [];
+}
+
+async function addBlogComment(postId, text) {
+  const payload = { postId, text: String(text || '').trim() };
+  if (isInTelegramWebApp() && window.Telegram?.WebApp?.initData) payload.initData = window.Telegram.WebApp.initData;
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API_BASE_BLOG + '/api/blog', { method: 'POST', headers, body: JSON.stringify(payload) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка');
+  return data.comment;
+}
+
 async function createBlogPost(payload) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
@@ -460,7 +478,6 @@ const I18N = {
     },
     blog: {
       title: "Блог о защите прав и ЖКХ",
-      subtitle: "Статьи и кейсы.",
       createPost: "Создать пост",
       titleRu: "Заголовок (RU)",
       titleEn: "Заголовок (EN)",
@@ -473,6 +490,11 @@ const I18N = {
       postCreated: "Пост опубликован",
       backLink: "На главную",
       noPosts: "Пока нет постов.",
+      commentsTitle: "Комментарии",
+      commentsEmpty: "Пока нет комментариев.",
+      commentPlaceholder: "Написать комментарий...",
+      commentButton: "Отправить",
+      loginToComment: "Войдите, чтобы комментировать",
     },
     contacts: {
       title: "Контакты",
@@ -739,7 +761,6 @@ const I18N = {
     },
     blog: {
       title: "Blog about housing rights",
-      subtitle: "Articles and cases.",
       createPost: "Create post",
       titleRu: "Title (RU)",
       titleEn: "Title (EN)",
@@ -752,6 +773,11 @@ const I18N = {
       postCreated: "Post published",
       backLink: "Back to Home",
       noPosts: "No posts yet.",
+      commentsTitle: "Comments",
+      commentsEmpty: "No comments yet.",
+      commentPlaceholder: "Write a comment...",
+      commentButton: "Send",
+      loginToComment: "Log in to comment",
     },
     contacts: {
       title: "Contacts",
@@ -2229,8 +2255,7 @@ function renderBlog() {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <a href="#" class="back-link">← ${t.backLink}</a>
-        <h1 class="page-title" style="margin:16px 0 8px">${t.title}</h1>
-        <p class="section-subtitle" style="margin:0">${t.subtitle}</p>
+        <h1 class="page-title" style="margin:16px 0 0">${t.title}</h1>
       </div>
       <section class="blog-posts" id="blog-posts" style="margin-top:24px">
         <p class="small muted-text">${ru ? 'Загрузка...' : 'Loading...'}</p>
@@ -2252,12 +2277,50 @@ function renderBlog() {
       return;
     }
     const formatDate = (d) => d ? new Date(d).toLocaleDateString(ru ? 'ru-RU' : 'en-US') : '';
+    for (const post of state.blogPosts) {
+      try {
+        post.comments = await fetchBlogComments(post.id).catch(() => []);
+      } catch { post.comments = []; }
+    }
     postsEl.innerHTML = state.blogPosts.map(post => {
       const title = ru ? (post.title_ru || post.title_en) : (post.title_en || post.title_ru);
       const body = ru ? (post.body_ru || post.body_en) : (post.body_en || post.body_ru);
       const mediaHtml = (post.media || []).map(m => m.type === 'video' ? `<video controls style="max-width:100%;border-radius:8px;margin:8px 0" src="${escapeHtml(m.url)}"></video>` : `<img src="${escapeHtml(m.url)}" alt="" style="max-width:100%;border-radius:8px;margin:8px 0;display:block" loading="lazy">`).join('');
-      return `<article class="neo-card" style="padding:24px;margin-bottom:16px"><h2 style="font-size:20px;margin:0 0 8px">${escapeHtml(title)}</h2><span class="small muted-text">${formatDate(post.created_at)}</span>${mediaHtml}<p style="white-space:pre-wrap;margin:16px 0 0;line-height:1.6">${escapeHtml(body)}</p></article>`;
+      const comments = post.comments || [];
+      const commentsList = comments.length === 0
+        ? `<p class="small muted-text" style="margin:0 0 12px">${t.commentsEmpty}</p>`
+        : comments.map(c => `<div style="background:var(--bg-elevated);border-radius:8px;padding:12px 16px;margin-bottom:8px"><div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:4px">${escapeHtml(c.author_name || '—')}</div><div style="font-size:14px;line-height:1.5">${escapeHtml(c.text)}</div></div>`).join('');
+      return `
+        <article class="neo-card blog-post-card" data-post-id="${post.id}" style="padding:24px;margin-bottom:16px">
+          <h2 style="font-size:20px;margin:0 0 8px">${escapeHtml(title)}</h2>
+          <span class="small muted-text">${formatDate(post.created_at)}</span>
+          ${mediaHtml}
+          <p style="white-space:pre-wrap;margin:16px 0 0;line-height:1.6">${escapeHtml(body)}</p>
+          <div class="blog-comments" style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
+            <h3 style="font-size:16px;margin:0 0 12px">${t.commentsTitle} (${comments.length})</h3>
+            <div class="comments-list" style="margin-bottom:12px">${commentsList}</div>
+            <textarea class="input comment-textarea" data-post-id="${post.id}" placeholder="${t.commentPlaceholder}" rows="3" style="width:100%;margin-bottom:8px;resize:vertical"></textarea>
+            <button type="button" class="primary-btn btn-add-comment" data-post-id="${post.id}">${t.commentButton}</button>
+          </div>
+        </article>
+      `;
     }).join('');
+
+    document.querySelectorAll('.btn-add-comment').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const postId = btn.getAttribute('data-post-id');
+        const textarea = document.querySelector(`.comment-textarea[data-post-id="${postId}"]`);
+        const text = textarea?.value?.trim();
+        if (!text) return;
+        if (!state.user) { alert(t.loginToComment); return; }
+        try {
+          await addBlogComment(postId, text);
+          const post = state.blogPosts.find(p => p.id === postId);
+          if (post) post.comments = await fetchBlogComments(postId);
+          renderBlog();
+        } catch (e) { alert(e.message); }
+      });
+    });
   })();
 }
 
