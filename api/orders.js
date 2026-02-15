@@ -85,17 +85,18 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, data, status, created_at')
+        .select('id, data, status, revision_comment, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) return res.status(500).json({ error: error.message });
-      return res.status(200).json({ orders: data || [] });
+      return res.status(200).json({ orders: (data || []).map(o => ({ ...o, revision_comment: o.revision_comment || '' })) });
     }
 
     if (req.method === 'POST') {
       const { data: orderData } = body;
       if (!orderData || typeof orderData !== 'object') return res.status(400).json({ error: 'Некорректные данные заказа' });
-      const row = { user_id: userId, data: orderData, status: 'no_review' };
+      const withExpert = !!orderData.withExpert;
+      const row = { user_id: userId, data: orderData, status: withExpert ? 'in_review' : 'no_review', revision_comment: '' };
       const { data: inserted, error } = await supabase.from('orders').insert(row).select().single();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ order: inserted });

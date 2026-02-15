@@ -532,6 +532,12 @@ const I18N = {
       empty: "Нет сохранённых черновиков.",
       ordersEmpty: "Нет заказов.",
       orderStatusNoReview: "Без проверки",
+      orderStatusInReview: "В работе",
+      orderStatusReady: "Готов",
+      orderStatusRevision: "Доработать",
+      orderInReviewHint: "Документ на проверке у эксперта. Скачать можно будет после одобрения.",
+      orderRevisionHint: "Эксперт внёс замечания. Перейдите к доработке.",
+      gotoRevision: "Перейти к доработке",
       orderOpen: "Открыть",
       deleteOrder: "Удалить",
       orderPreview: "Предпросмотр",
@@ -749,6 +755,12 @@ const I18N = {
       empty: "No saved drafts.",
       ordersEmpty: "No orders.",
       orderStatusNoReview: "Without review",
+      orderStatusInReview: "In progress",
+      orderStatusReady: "Ready",
+      orderStatusRevision: "Needs revision",
+      orderInReviewHint: "Document is under expert review. You can download it after approval.",
+      orderRevisionHint: "Expert left comments. Proceed to revision.",
+      gotoRevision: "Go to revision",
       orderOpen: "Open",
       deleteOrder: "Delete",
       orderPreview: "Preview",
@@ -845,16 +857,14 @@ async function createOrder() {
     alert(I18N[state.lang].alerts.mustLogin);
     return;
   }
-  if (state.withExpert) {
-    alert(state.lang === 'ru' ? 'Оформление заказа с проверкой временно недоступно' : 'Orders with expert review are temporarily unavailable');
-    return;
-  }
   const orderData = { ...state.constructorForm, withExpert: state.withExpert };
   try {
     const created = await createOrderApi(orderData);
     clearConstructorForm();
     state.profileOrders = [{ ...created }, ...(state.profileOrders || [])];
-    alert(state.lang === 'ru' ? 'Заказ оформлен' : 'Order created');
+    alert(state.withExpert
+      ? (state.lang === 'ru' ? 'Заказ оформлен. Документ направлен на проверку эксперту. Вы сможете скачать его после одобрения.' : 'Order created. Document sent for expert review. You can download it after approval.')
+      : (state.lang === 'ru' ? 'Заказ оформлен' : 'Order created'));
     window.location.hash = '#profile';
     render();
   } catch (e) {
@@ -1037,31 +1047,76 @@ function downloadOrderPdf(order) {
   document.head.appendChild(script);
 }
 
+function getOrderStatusLabel(status) {
+  const t = I18N[state.lang].profile;
+  const map = { no_review: t.orderStatusNoReview, in_review: t.orderStatusInReview, ready: t.orderStatusReady, revision: t.orderStatusRevision };
+  return map[status] || status || t.orderStatusNoReview;
+}
+
+function canDownloadOrder(order) {
+  const s = order?.status;
+  return s === 'no_review' || s === 'ready';
+}
+
 function openOrderModal(order) {
   const t = I18N[state.lang].profile;
+  const status = order?.status || 'no_review';
+  const isRevision = status === 'revision';
+  const canDownload = canDownloadOrder(order);
+  const revisionComment = (order?.revision_comment || order?.data?.revision_comment || '').trim();
   const preview = getLetterPreviewFromData(order?.data);
+
+  const actionsHtml = isRevision
+    ? `<div class="modal-revision-block" style="background:#fff9e6;border:1px solid #e6c200;border-radius:8px;padding:12px;margin-bottom:16px;">
+        <div class="small" style="font-weight:600;margin-bottom:6px;">${t.orderRevisionHint}</div>
+        ${revisionComment ? `<div class="small muted-text" style="margin-bottom:12px;">${escapeHtml(revisionComment)}</div>` : ''}
+        <button class="primary-btn" id="modal-goto-revision">${t.gotoRevision}</button>
+      </div>
+      <button class="secondary-btn" id="modal-close">${t.close || 'Закрыть'}</button>`
+    : canDownload
+      ? `<button class="primary-btn" id="modal-download">${t.download || 'Скачать'}</button>
+         <button class="secondary-btn" id="modal-close">${t.close || 'Закрыть'}</button>`
+      : `<div class="small muted-text" style="margin-bottom:12px;">${t.orderInReviewHint}</div>
+         <button class="secondary-btn" id="modal-close">${t.close || 'Закрыть'}</button>`;
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content">
       <h3 class="modal-title">${t.orderPreview}</h3>
       <div class="modal-preview"><pre>${(preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre></div>
-      <div class="modal-actions">
-        <button class="primary-btn" id="modal-download">${t.download || 'Скачать'}</button>
-        <button class="secondary-btn" id="modal-close">${t.close || 'Закрыть'}</button>
-      </div>
+      <div class="modal-actions">${actionsHtml}</div>
     </div>
   `;
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px';
   document.body.appendChild(overlay);
 
-  const close = () => {
-    overlay.remove();
-  };
+  const close = () => overlay.remove();
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   overlay.querySelector('#modal-close').addEventListener('click', close);
-  overlay.querySelector('#modal-download').addEventListener('click', () => {
-    downloadOrderPdf(order);
+
+  const btnDownload = overlay.querySelector('#modal-download');
+  if (btnDownload) btnDownload.addEventListener('click', () => { downloadOrderPdf(order); });
+
+  const btnGotoRevision = overlay.querySelector('#modal-goto-revision');
+  if (btnGotoRevision) btnGotoRevision.addEventListener('click', async () => {
+    close();
+    const d = order?.data || {};
+    const draftData = {
+      ...d,
+      extraInfo: revisionComment
+        ? (state.lang === 'ru' ? 'Комментарий эксперта о доработке: ' : 'Expert revision comment: ') + revisionComment + (d.extraInfo ? '\n\n' + d.extraInfo : '')
+        : d.extraInfo || '',
+    };
+    delete draftData.revision_comment;
+    try {
+      const created = await saveDraftToApi(draftData);
+      if (created) state.profileDrafts = [{ ...created }, ...(state.profileDrafts || [])];
+      loadDraftIntoConstructor({ id: created?.id, data: draftData });
+    } catch (e) {
+      loadDraftIntoConstructor({ data: draftData });
+    }
+    render();
   });
 }
 
@@ -1614,7 +1669,7 @@ async function renderProfile() {
         <div class="neo-card order-card" style="margin-bottom:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;margin-bottom:4px">${formatOrderPreview(o)}</div>
-            <div class="small muted-text">${t.orderStatusNoReview} · ${new Date(o.created_at).toLocaleDateString()}</div>
+            <div class="small muted-text">${getOrderStatusLabel(o.status)} · ${new Date(o.created_at).toLocaleDateString()}</div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
             <button class="secondary-btn order-open-btn" data-order-index="${i}">${t.orderOpen}</button>
