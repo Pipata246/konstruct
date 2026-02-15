@@ -594,6 +594,7 @@ const I18N = {
       save: "Сохранить",
       user: "Пользователь",
       date: "Дата",
+      view: "Просмотр",
     },
     profile: {
       title: "Профиль",
@@ -831,6 +832,7 @@ const I18N = {
       save: "Save",
       user: "User",
       date: "Date",
+      view: "View",
     },
     profile: {
       title: "Profile",
@@ -1206,6 +1208,29 @@ function openOrderModal(order) {
     close();
     loadOrderIntoConstructor(order);
   });
+}
+
+function openAdminOrderModal(order) {
+  const t = I18N[state.lang].profile;
+  const preview = getLetterPreviewFromData(order?.data);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h3 class="modal-title">${t.orderPreview}</h3>
+      <div class="modal-preview" style="max-height:70vh;overflow:auto"><pre style="white-space:pre-wrap;font-size:13px">${(preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre></div>
+      <div class="modal-actions">
+        <button class="secondary-btn" id="admin-modal-close">${t.close || 'Закрыть'}</button>
+      </div>
+    </div>
+  `;
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px';
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#admin-modal-close').addEventListener('click', close);
 }
 
 function formatOrderPreview(order) {
@@ -1967,6 +1992,7 @@ async function renderAdmin() {
               <div class="small muted-text">${t.user}: ${escapeHtml(formatUser(o.user))} · ${t.date}: ${new Date(o.created_at).toLocaleDateString()}</div>
               <div style="margin-top:8px"><span class="tag" style="background:var(--bg-soft);padding:4px 8px;border-radius:6px">${statusLabel(approved)}</span></div>
               ${approved === false && o.revision_comment ? `<div class="small muted-text" style="margin-top:8px">${state.lang === 'ru' ? 'Комментарий:' : 'Comment:'} ${escapeHtml(o.revision_comment)}</div>` : ''}
+              <div style="margin-top:8px"><button class="secondary-btn admin-view-order" data-order-index="${i}">${t.view}</button></div>
             </div>
             <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
               ${canSetReady ? `<button class="secondary-btn admin-set-ready" data-order-id="${id}">${t.setReady}</button>` : ''}
@@ -1983,6 +2009,14 @@ async function renderAdmin() {
         }
       )
       .join('');
+
+    listEl.querySelectorAll('.admin-view-order').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-order-index'), 10);
+        const order = state.adminOrders[idx];
+        if (order) openAdminOrderModal(order);
+      });
+    });
 
     listEl.querySelectorAll('.admin-set-ready').forEach((btn) => {
       btn.addEventListener('click', async () => {
