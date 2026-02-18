@@ -1418,16 +1418,17 @@ function getLetterPreviewFromData(f) {
   }
 
   const vars = {
-    fullName: (f.fullName && String(f.fullName).trim()) || "___________",
-    ukName: (f.ukName && String(f.ukName).trim()) || "___________",
-    address: (f.address && String(f.address).trim()) || "___________",
-    passportSeries: (f.passportSeries && String(f.passportSeries).trim()) || "____",
-    passportNumber: (f.passportNumber && String(f.passportNumber).trim()) || "______",
-    passportIssued: (f.passportIssued && String(f.passportIssued).trim()) || "___________",
-    phone: (f.phone && String(f.phone).trim()) || "___________",
-    emailForReply: (f.emailForReply && String(f.emailForReply).trim()) || "___________",
-    accountNumber: (f.accountNumber && String(f.accountNumber).trim()) || "____",
-    period: (f.period && String(f.period).trim()) || "____",
+    fullName: (f.fullName != null && String(f.fullName).trim()) ? String(f.fullName).trim() : "___________",
+    ukName: (f.ukName != null && String(f.ukName).trim()) ? String(f.ukName).trim() : "___________",
+    address: (f.address != null && String(f.address).trim()) ? String(f.address).trim() : "___________",
+    passportSeries: (f.passportSeries != null && String(f.passportSeries).trim()) ? String(f.passportSeries).trim() : "____",
+    passportNumber: (f.passportNumber != null && String(f.passportNumber).trim()) ? String(f.passportNumber).trim() : "______",
+    passportIssued: (f.passportIssued != null && String(f.passportIssued).trim()) ? String(f.passportIssued).trim() : "___________",
+    phone: (f.phone != null && String(f.phone).trim()) ? String(f.phone).trim() : "___________",
+    emailForReply: (f.emailForReply != null && String(f.emailForReply).trim()) ? String(f.emailForReply).trim() : "___________",
+    accountNumber: (f.accountNumber != null && String(f.accountNumber).trim()) ? String(f.accountNumber).trim() : "____",
+    period: (f.period != null && String(f.period).trim()) ? String(f.period).trim() : "____",
+    extraInfo: (f.extraInfo != null && String(f.extraInfo).trim()) ? String(f.extraInfo).trim() : "",
   };
 
   const tpl = pickTemplate(f.templateId || state.constructorForm.templateId);
@@ -1436,8 +1437,8 @@ function getLetterPreviewFromData(f) {
   const title = fillPlaceholders(titleRaw, vars);
 
   const header = ru
-    ? `Кому: ${f.ukName || "___________"}\nОт: ${f.fullName || "___________"}\nПаспорт: серия ${f.passportSeries || "____"} номер ${f.passportNumber || "______"}, выдан ${f.passportIssued || "___________"}\nАдрес регистрации: ${f.address || "___________"}\nКонтактный телефон: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`
-    : `To: ${f.ukName || "___________"}\nFrom: ${f.fullName || "___________"}\nPassport: series ${f.passportSeries || "____"} no. ${f.passportNumber || "______"}, issued ${f.passportIssued || "___________"}\nAddress: ${f.address || "___________"}\nPhone: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`;
+    ? `Кому: ${vars.ukName}\nОт: ${vars.fullName}\nПаспорт: серия ${vars.passportSeries} номер ${vars.passportNumber}, выдан ${vars.passportIssued}\nАдрес регистрации: ${vars.address}\nКонтактный телефон: ${vars.phone}  Email: ${vars.emailForReply}`
+    : `To: ${vars.ukName}\nFrom: ${vars.fullName}\nPassport: series ${vars.passportSeries} no. ${vars.passportNumber}, issued ${vars.passportIssued}\nAddress: ${vars.address}\nPhone: ${vars.phone}  Email: ${vars.emailForReply}`;
 
   const body = fillPlaceholders(bodyRaw, vars);
 
@@ -1480,16 +1481,17 @@ function buildPdfDocumentHtml(f, ru) {
   }
 
   const vars = {
-    fullName: (f.fullName && String(f.fullName).trim()) || "___________",
-    ukName: (f.ukName && String(f.ukName).trim()) || "___________",
-    address: (f.address && String(f.address).trim()) || "___________",
-    passportSeries: (f.passportSeries && String(f.passportSeries).trim()) || "____",
-    passportNumber: (f.passportNumber && String(f.passportNumber).trim()) || "______",
-    passportIssued: (f.passportIssued && String(f.passportIssued).trim()) || "___________",
-    phone: (f.phone && String(f.phone).trim()) || "___________",
-    emailForReply: (f.emailForReply && String(f.emailForReply).trim()) || "___________",
-    accountNumber: (f.accountNumber && String(f.accountNumber).trim()) || "____",
-    period: (f.period && String(f.period).trim()) || "____",
+    fullName: (f.fullName != null && String(f.fullName).trim()) ? String(f.fullName).trim() : "___________",
+    ukName: (f.ukName != null && String(f.ukName).trim()) ? String(f.ukName).trim() : "___________",
+    address: (f.address != null && String(f.address).trim()) ? String(f.address).trim() : "___________",
+    passportSeries: (f.passportSeries != null && String(f.passportSeries).trim()) ? String(f.passportSeries).trim() : "____",
+    passportNumber: (f.passportNumber != null && String(f.passportNumber).trim()) ? String(f.passportNumber).trim() : "______",
+    passportIssued: (f.passportIssued != null && String(f.passportIssued).trim()) ? String(f.passportIssued).trim() : "___________",
+    phone: (f.phone != null && String(f.phone).trim()) ? String(f.phone).trim() : "___________",
+    emailForReply: (f.emailForReply != null && String(f.emailForReply).trim()) ? String(f.emailForReply).trim() : "___________",
+    accountNumber: (f.accountNumber != null && String(f.accountNumber).trim()) ? String(f.accountNumber).trim() : "____",
+    period: (f.period != null && String(f.period).trim()) ? String(f.period).trim() : "____",
+    extraInfo: (f.extraInfo != null && String(f.extraInfo).trim()) ? String(f.extraInfo).trim() : "",
   };
 
   const tpl = pickTemplate(f.templateId || state.constructorForm.templateId);
@@ -2465,10 +2467,10 @@ function openTemplateEditorModal(existing) {
   box.className = 'neo-card';
   box.style.cssText = 'max-width:720px;width:100%;max-height:90vh;overflow:auto;';
 
-  const titleRu = tpl.content?.title?.ru || '';
-  const bodyRu = tpl.content?.body?.ru || '';
-  const titleEn = tpl.content?.title?.en || '';
-  const bodyEn = tpl.content?.body?.en || '';
+  const titleRu = tpl.title_ru ?? tpl.content?.title?.ru ?? '';
+  const titleEn = tpl.title_en ?? tpl.content?.title?.en ?? '';
+  const bodyRu = tpl.body_ru ?? tpl.content?.body?.ru ?? '';
+  const bodyEn = tpl.body_en ?? tpl.content?.body?.en ?? '';
 
   box.innerHTML = `
     <h3 class="preview-title" style="margin-top:0">${tpl.id ? t.editTemplate : t.createTemplate}</h3>
@@ -2492,12 +2494,12 @@ function openTemplateEditorModal(existing) {
     </div>
     <div class="field">
       <div class="stacked-label">${t.templateTitleRu}</div>
-      <textarea class="textarea input" id="tpl-title-ru" rows="3" placeholder="...">${escapeHtml(titleRu)}</textarea>
+      <textarea class="textarea input" id="tpl-title-ru" rows="3" placeholder="Например: ЗАПРОС о предоставлении документов (в соответствии с ФЗ № 402-ФЗ)">${escapeHtml(titleRu)}</textarea>
     </div>
     <div class="field">
       <div class="stacked-label">${t.templateBodyRu}</div>
-      <textarea class="textarea input" id="tpl-body-ru" rows="10" placeholder="...">${escapeHtml(bodyRu)}</textarea>
-      <p class="small muted-text" style="margin-top:6px">Переменные: <code>{{fullName}}</code>, <code>{{ukName}}</code>, <code>{{address}}</code>, <code>{{passportSeries}}</code>, <code>{{passportNumber}}</code>, <code>{{passportIssued}}</code>, <code>{{phone}}</code>, <code>{{emailForReply}}</code>, <code>{{accountNumber}}</code>, <code>{{period}}</code></p>
+      <textarea class="textarea input" id="tpl-body-ru" rows="14" placeholder="Текст письма на русском. Списки: строка с «- » (дефис и пробел); подпункты — с отступом «  - ».">${escapeHtml(bodyRu)}</textarea>
+      <p class="small muted-text" style="margin-top:6px">Списки: каждая строка с «- » (дефис и пробел). Подпункты — с отступом в два пробела.</p>
     </div>
     <div class="field">
       <div class="stacked-label">${t.templateTitleEn}</div>
@@ -2519,23 +2521,69 @@ function openTemplateEditorModal(existing) {
   const close = () => overlay.remove();
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   box.querySelector('#tpl-cancel').addEventListener('click', close);
+  function insertAtCursor(textareaId, token) {
+    const ta = box.querySelector('#' + textareaId);
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd, val = ta.value;
+    ta.value = val.slice(0, start) + token + val.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + token.length;
+    ta.focus();
+  }
+
+  const varButtons = [
+    { key: 'fullName', label: 'ФИО' },
+    { key: 'ukName', label: 'УК' },
+    { key: 'address', label: 'Адрес' },
+    { key: 'passportSeries', label: 'Серия' },
+    { key: 'passportNumber', label: 'Номер паспорта' },
+    { key: 'passportIssued', label: 'Кем выдан' },
+    { key: 'phone', label: 'Телефон' },
+    { key: 'emailForReply', label: 'Email' },
+    { key: 'accountNumber', label: 'Лицевой счёт' },
+    { key: 'period', label: 'Период' },
+    { key: 'extraInfo', label: 'Иная информация' },
+  ];
+  const varBtnsHtml = varButtons.map((v) => `<button type="button" class="secondary-btn tpl-var-btn" data-var="{{${v.key}}}" data-target="tpl-body-ru" style="font-size:12px;padding:4px 8px">${v.label}</button>`).join('');
+
+  const bodyRuWrap = box.querySelector('#tpl-body-ru')?.closest('.field');
+  if (bodyRuWrap) {
+    const div = document.createElement('div');
+    div.className = 'small muted-text';
+    div.style.marginTop = '8px';
+    div.innerHTML = `<div style="margin-bottom:6px">Вставить переменную (подставится из формы пользователя):</div><div style="display:flex;flex-wrap:wrap;gap:6px">${varBtnsHtml}</div>`;
+    bodyRuWrap.appendChild(div);
+    bodyRuWrap.querySelectorAll('.tpl-var-btn').forEach((btn) => {
+      btn.addEventListener('click', () => insertAtCursor(btn.getAttribute('data-target'), btn.getAttribute('data-var')));
+    });
+  }
+  const varBtnsHtmlEn = varButtons.map((v) => `<button type="button" class="secondary-btn tpl-var-btn" data-var="{{${v.key}}}" data-target="tpl-body-en" style="font-size:12px;padding:4px 8px">${v.key}</button>`).join('');
+  const bodyEnWrap = box.querySelector('#tpl-body-en')?.closest('.field');
+  if (bodyEnWrap) {
+    const div = document.createElement('div');
+    div.className = 'small muted-text';
+    div.style.marginTop = '8px';
+    div.innerHTML = `<div style="margin-bottom:6px">Insert variable:</div><div style="display:flex;flex-wrap:wrap;gap:6px">${varBtnsHtmlEn}</div>`;
+    bodyEnWrap.appendChild(div);
+    bodyEnWrap.querySelectorAll('.tpl-var-btn').forEach((btn) => {
+      btn.addEventListener('click', () => insertAtCursor(btn.getAttribute('data-target'), btn.getAttribute('data-var')));
+    });
+  }
+
   box.querySelector('#tpl-save').addEventListener('click', async () => {
+    const titleRu = box.querySelector('#tpl-title-ru').value || '';
+    const titleEn = box.querySelector('#tpl-title-en').value || '';
+    const bodyRu = box.querySelector('#tpl-body-ru').value || '';
+    const bodyEn = box.querySelector('#tpl-body-en').value || '';
     const payload = {
       name: box.querySelector('#tpl-name').value.trim(),
       description: box.querySelector('#tpl-desc').value.trim(),
       is_active: box.querySelector('#tpl-active').checked,
       sort_order: parseInt(box.querySelector('#tpl-sort').value || '0', 10) || 0,
-      content: {
-        version: 1,
-        title: {
-          ru: box.querySelector('#tpl-title-ru').value || '',
-          en: box.querySelector('#tpl-title-en').value || '',
-        },
-        body: {
-          ru: box.querySelector('#tpl-body-ru').value || '',
-          en: box.querySelector('#tpl-body-en').value || '',
-        },
-      },
+      title_ru: titleRu,
+      title_en: titleEn,
+      body_ru: bodyRu,
+      body_en: bodyEn,
+      content: { title: { ru: titleRu, en: titleEn }, body: { ru: bodyRu, en: bodyEn } },
     };
     if (!payload.name) {
       alert(state.lang === 'ru' ? 'Укажите название шаблона' : 'Enter template name');

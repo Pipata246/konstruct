@@ -104,16 +104,23 @@ module.exports = async function handler(req, res) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     if (!(await isAdmin(supabase, userId))) return res.status(403).json({ error: 'Доступ запрещён' });
 
-    // ===== Templates CRUD =====
+    // ===== Templates CRUD (таблица: name, description, title_ru, title_en, body_ru, body_en, is_active, sort_order) =====
     if (resource === 'templates') {
       if (req.method === 'GET') {
-        const { data: templates, error } = await supabase
+        const { data: rows, error } = await supabase
           .from('templates')
-          .select('id, name, description, content, is_active, sort_order, created_at, updated_at')
+          .select('id, name, description, title_ru, title_en, body_ru, body_en, is_active, sort_order, created_at, updated_at')
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true });
         if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json({ templates: templates || [] });
+        const templates = (rows || []).map((row) => ({
+          ...row,
+          content: {
+            title: { ru: row.title_ru || '', en: row.title_en || '' },
+            body: { ru: row.body_ru || '', en: row.body_en || '' },
+          },
+        }));
+        return res.status(200).json({ templates });
       }
 
       if (req.method === 'POST') {
@@ -123,14 +130,24 @@ module.exports = async function handler(req, res) {
         const row = {
           name,
           description: String(tpl.description || ''),
-          content: tpl.content && typeof tpl.content === 'object' ? tpl.content : {},
+          title_ru: String(tpl.title_ru ?? (tpl.content?.title?.ru ?? '')).trim(),
+          title_en: String(tpl.title_en ?? (tpl.content?.title?.en ?? '')).trim(),
+          body_ru: String(tpl.body_ru ?? (tpl.content?.body?.ru ?? '')),
+          body_en: String(tpl.body_en ?? (tpl.content?.body?.en ?? '')),
           is_active: tpl.is_active !== undefined ? !!tpl.is_active : true,
-          sort_order: Number.isFinite(tpl.sort_order) ? tpl.sort_order : 0,
+          sort_order: parseInt(tpl.sort_order, 10) || 0,
           updated_at: new Date().toISOString(),
         };
         const { data: created, error } = await supabase.from('templates').insert(row).select().single();
         if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json({ template: created });
+        const out = {
+          ...created,
+          content: {
+            title: { ru: created.title_ru || '', en: created.title_en || '' },
+            body: { ru: created.body_ru || '', en: created.body_en || '' },
+          },
+        };
+        return res.status(200).json({ template: out });
       }
 
       if (req.method === 'PUT') {
@@ -140,15 +157,25 @@ module.exports = async function handler(req, res) {
         const update = { updated_at: new Date().toISOString() };
         if (patch.name !== undefined) update.name = String(patch.name || '').trim();
         if (patch.description !== undefined) update.description = String(patch.description || '');
-        if (patch.content !== undefined) update.content = patch.content && typeof patch.content === 'object' ? patch.content : {};
+        if (patch.title_ru !== undefined) update.title_ru = String(patch.title_ru ?? (patch.content?.title?.ru ?? ''));
+        if (patch.title_en !== undefined) update.title_en = String(patch.title_en ?? (patch.content?.title?.en ?? ''));
+        if (patch.body_ru !== undefined) update.body_ru = String(patch.body_ru ?? (patch.content?.body?.ru ?? ''));
+        if (patch.body_en !== undefined) update.body_en = String(patch.body_en ?? (patch.content?.body?.en ?? ''));
         if (patch.is_active !== undefined) update.is_active = !!patch.is_active;
-        if (patch.sort_order !== undefined) update.sort_order = Number(patch.sort_order) || 0;
+        if (patch.sort_order !== undefined) update.sort_order = parseInt(patch.sort_order, 10) || 0;
         if (update.name !== undefined && !update.name) return res.status(400).json({ error: 'name не может быть пустым' });
 
         const { data: updated, error } = await supabase.from('templates').update(update).eq('id', id).select().single();
         if (error) return res.status(500).json({ error: error.message });
         if (!updated) return res.status(404).json({ error: 'Шаблон не найден' });
-        return res.status(200).json({ template: updated });
+        const out = {
+          ...updated,
+          content: {
+            title: { ru: updated.title_ru || '', en: updated.title_en || '' },
+            body: { ru: updated.body_ru || '', en: updated.body_en || '' },
+          },
+        };
+        return res.status(200).json({ template: out });
       }
 
       if (req.method === 'DELETE') {
