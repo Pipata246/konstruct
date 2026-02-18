@@ -24,16 +24,17 @@ module.exports = async function handler(req, res) {
     const paymentIntentId = payment.metadata?.payment_intent_id;
     if (!paymentIntentId) return res.status(200).json({ ok: true });
 
-    // Проверяем статус оплаты через API ЮKassa — заказ создаём только при реальном succeeded
-    if (YOOKASSA_SHOP_ID && YOOKASSA_SECRET_KEY) {
-      const auth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
-      const yooRes = await fetch(`https://api.yookassa.ru/v3/payments/${payment.id}`, {
-        headers: { Authorization: `Basic ${auth}` },
-      });
-      const verified = await yooRes.json().catch(() => ({}));
-      if (verified.status !== 'succeeded') {
-        return res.status(200).json({ ok: true });
-      }
+    // Заказ создаём только после проверки статуса через API ЮKassa (без верификации — не создаём)
+    if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
+      return res.status(200).json({ ok: true });
+    }
+    const auth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+    const yooRes = await fetch(`https://api.yookassa.ru/v3/payments/${payment.id}`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    const verified = await yooRes.json().catch(() => ({}));
+    if (verified.status !== 'succeeded') {
+      return res.status(200).json({ ok: true });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

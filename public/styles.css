@@ -1325,3 +1325,31 @@ html {
     min-width: 200px;
   }
 }
+
+/* Экран загрузки при возврате с оплаты */
+.payment-return-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-elevated, #ecf2ff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.payment-return-loader__spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border, #cfd8e7);
+  border-top-color: var(--accent, #8b5cf6);
+  border-radius: 50%;
+  animation: payment-return-spin 0.9s linear infinite;
+}
+.payment-return-loader__text {
+  color: var(--text-muted, #6b7280);
+  font-size: 14px;
+}
+@keyframes payment-return-spin {
+  to { transform: rotate(360deg); }
+}

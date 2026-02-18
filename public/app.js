@@ -608,6 +608,7 @@ const I18N = {
       cancel: "Отмена",
       paymentSuccess: "Оплата прошла. Заказ создан.",
       paymentCancel: "Оплата отменена. Заказ не создан.",
+      paymentError: "Ошибка оплаты. Заказ не создан.",
     },
     blog: {
       title: "Блог о защите прав и ЖКХ",
@@ -911,6 +912,7 @@ const I18N = {
       cancel: "Cancel",
       paymentSuccess: "Payment successful. Order created.",
       paymentCancel: "Payment cancelled. No order was created.",
+      paymentError: "Payment failed. Order was not created.",
     },
     blog: {
       title: "Blog about housing rights",
@@ -1497,22 +1499,41 @@ function formatOrderPreview(order) {
   return [uk, period].filter(Boolean).join(' · ') || (state.lang === 'ru' ? 'Заказ' : 'Order');
 }
 
+function showPaymentReturnLoader() {
+  const t = I18N[state.lang].constructor;
+  const loadingText = state.lang === 'ru' ? 'Проверка оплаты…' : 'Checking payment…';
+  const el = document.createElement('div');
+  el.className = 'payment-return-loader';
+  el.id = 'payment-return-loader';
+  el.innerHTML = '<div class="payment-return-loader__spinner" aria-hidden="true"></div><p class="payment-return-loader__text">' + loadingText + '</p>';
+  document.body.appendChild(el);
+}
+
+function hidePaymentReturnLoader() {
+  document.getElementById('payment-return-loader')?.remove();
+}
+
 async function applyPaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const payment = params.get('payment');
   if (!payment) return;
+  showPaymentReturnLoader();
   const t = I18N[state.lang].constructor;
   window.history.replaceState(null, '', window.location.pathname + '#profile');
   window.location.hash = '#profile';
-  let msg = t.paymentCancel;
+  let msg = t.paymentError;
   try {
     if (payment === 'success') {
       const data = await syncPaymentApi();
-      msg = data.synced ? t.paymentSuccess : t.paymentCancel;
+      msg = data.synced ? t.paymentSuccess : t.paymentError;
     }
   } catch (_) {}
-  const orders = await fetchOrders().catch(() => []);
-  state.profileOrders = orders || [];
+  try {
+    const orders = await fetchOrders().catch(() => []);
+    state.profileOrders = orders || [];
+  } finally {
+    hidePaymentReturnLoader();
+  }
   alert(msg);
   render();
 }
@@ -2913,8 +2934,9 @@ function initShell() {
   state.blogPosts = [];
   initProfile();
 
+  const hasPayment = new URLSearchParams(window.location.search).get('payment');
+  if (hasPayment) showPaymentReturnLoader();
   initAuth().then(() => {
-    const hasPayment = new URLSearchParams(window.location.search).get('payment');
     if (hasPayment) applyPaymentReturn();
     else render();
   });
