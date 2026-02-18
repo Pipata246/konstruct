@@ -17,6 +17,7 @@ const state = {
     phone: "",
     ukName: "",
     ukAddress: "",
+    accountNumber: "",
     period: "",
     emailForReply: "",
     extraInfo: "",
@@ -578,6 +579,8 @@ const I18N = {
       ukAddressPlaceholder: "г. Москва, ул. Управляющая, д. 10",
       period: "Период начислений",
       periodPlaceholder: "Например: с 01.01.2025 по 31.03.2025",
+      accountNumber: "Номер лицевого счета (необязательно)",
+      accountNumberPlaceholder: "Например: 1234567890",
       services: "Услуги (отметьте нужные для п. 2, ПП РФ № 354)",
       servicesOptions: {
         coldWater: "Холодное водоснабжение",
@@ -882,6 +885,8 @@ const I18N = {
       ukAddressPlaceholder: "Moscow, Management st. 10",
       period: "Billing period",
       periodPlaceholder: "e.g. 01.01.2025 – 31.03.2025",
+      accountNumber: "Personal account number (optional)",
+      accountNumberPlaceholder: "e.g. 1234567890",
       services: "Services (for section 2, RF Gov. Decree No. 354)",
       servicesOptions: {
         coldWater: "Cold water supply",
@@ -1093,6 +1098,7 @@ function clearConstructorForm() {
     phone: "",
     ukName: "",
     ukAddress: "",
+    accountNumber: "",
     period: "",
     emailForReply: "",
     extraInfo: "",
@@ -1259,21 +1265,21 @@ function getRequestDocParts(f, lang) {
 function getLetterPreviewFromData(f) {
   if (!f) f = state.constructorForm;
   const lang = state.lang;
-  const { periodPhrase, periodPhrase11, servicesList, ru } = getRequestDocParts(f, lang);
+  const { ru } = getRequestDocParts(f, lang);
 
   const title = ru
-    ? "ЗАПРОС о предоставлении информации, связанной с управлением многоквартирным домом (во исполнение ст. 165 ЖК РФ и Постановления Правительства РФ № 416)"
-    : "REQUEST for information related to management of a multi-apartment building (pursuant to Art. 165 Housing Code and RF Government Decree No. 416)";
+    ? "ЗАПРОС\nо предоставлении документов, послуживших основанием для начисления платы за жилищно-коммунальные услуги\n(в соответствии с Федеральным законом № 402-ФЗ)"
+    : "REQUEST\nfor documents forming the basis for housing and коммунal service charges\n(pursuant to Federal Law No. 402-FZ)";
 
   const header = ru
-    ? `Кому: ${f.ukName || "___________"}\nОт кого: ${f.fullName || "___________"}\nПаспорт: серия ${f.passportSeries || "____"} номер ${f.passportNumber || "______"}, выдан ${f.passportIssued || "___________"}\nАдрес регистрации и фактического проживания: ${f.address || "___________"}\nКонтактный телефон: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`
+    ? `Кому: ${f.ukName || "___________"}\nОт: ${f.fullName || "___________"}\nПаспорт: серия ${f.passportSeries || "____"} номер ${f.passportNumber || "______"}, выдан ${f.passportIssued || "___________"}\nАдрес регистрации: ${f.address || "___________"}\nКонтактный телефон: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`
     : `To: ${f.ukName || "___________"}\nFrom: ${f.fullName || "___________"}\nPassport: series ${f.passportSeries || "____"} no. ${f.passportNumber || "______"}, issued ${f.passportIssued || "___________"}\nAddress: ${f.address || "___________"}\nPhone: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`;
 
-  const extraText = (f.extraInfo && String(f.extraInfo).trim()) || '';
-  const extraBlock = extraText ? (ru ? `\n\n5. Иная информация: ${extraText}.\n\n` : ` 5) Other: ${extraText}. `) : (ru ? '\n\n' : ' ');
+  const acc = (f.accountNumber && String(f.accountNumber).trim()) || '';
+  const period = (f.period && String(f.period).trim()) || '';
   const body = ru
-    ? `Я, ${f.fullName || "___________"}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу. На основании статьи 165 Жилищного кодекса РФ и п. 31, 34-38 Постановления Правительства РФ № 416 от 15.05.2013 "О порядке осуществления деятельности по управлению многоквартирными домами", ПРОШУ:\n\nПредоставить мне в срок, установленный законодательством (не более 10 рабочих дней / 20 календарных дней согласно п. 67 Стандартов раскрытия информации), следующую информацию по моему многоквартирному дому:\n\n1. Сведения о начислениях и задолженности:\n1.1. Имеется ли у меня задолженность по оплате жилищно-коммунальных услуг на дату составления ответа? Если да — с детализацией по видам услуг и периодам.${periodPhrase11}\n1.2. Помесячные объемы потребленных коммунальных ресурсов по показаниям общедомовых приборов учета${periodPhrase}.\n\n2. Сведения о расходовании средств:\n${servicesList}\nСведения о заключенных договорах с подрядными организациями на выполнение работ (с указанием предмета договора и стоимости), если такие работы оплачивались за счет средств собственников.\n\n3. Сведения об управляющей организации: Режим работы, контактные телефоны аварийно-диспетчерской службы.\n\n4. Сведения о тарифах и нормативах: Действующие тарифы на коммунальные услуги и размер платы за содержание жилого помещения с расшифровкой (ставки за управление, содержание, текущий ремонт).${extraBlock}Дата: «»______ 20   г.\nПодпись: _______________ (${fullNameToShort(f.fullName) || '__________'})`
-    : `I, ${f.fullName || "___________"}, am the owner/tenant of the residential premises at the above address. Under Art. 165 of the Housing Code of the RF and paras. 31, 34-38 of RF Government Decree No. 416 of 15.05.2013, I REQUEST:\n\nTo be provided within the statutory time limit with the following information. 1) Charges and arrears${periodPhrase11} 1.2) Monthly consumption${periodPhrase}. 2) Expenditure: ${servicesList} 3) MC details and emergency contacts. 4) Tariffs.${extraBlock}\n\nDate ________  Signature ________ (${fullNameToShort(f.fullName) || '__________'})`;
+    ? `Я, ${f.fullName || "___________"}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу.\n\nНа основании Федерального закона от 04.06.2011 № 402-ФЗ «О внесении изменений в Жилищный кодекс Российской Федерации и отдельные законодательные акты Российской Федерации» ПРОШУ:\n\nПредоставить мне заверенные копии следующих документов (сведений), послуживших основанием для начисления платы за жилищно-коммунальные услуги по моему лицевому счету № ${acc || "____"} за период ${period || "____"}:\n\n1) Договор управления многоквартирным домом со всеми приложениями и дополнительными соглашениями.\n\n2) Протоколы общих собраний собственников, на которых утверждались:\n- размер платы за содержание и ремонт жилого помещения;\n- перечень услуг и работ по содержанию и ремонту общего имущества;\n- тарифы на коммунальные услуги (при наличии).\n\n3) Расчет размера платы за коммунальные услуги с указанием применяемых тарифов, нормативов потребления, показаний приборов учета.\n\n4) Акты выполненных работ (оказанных услуг) по содержанию и ремонту общего имущества за указанный период.\n\n5) Сведения о наличии (отсутствии) задолженности по оплате жилищно-коммунальных услуг с детализацией по видам услуг.\n\n6) Иные документы, на основании которых производились начисления по моему лицевому счету.\n\nСпособ получения ответа:\nПрошу направить письменный ответ с приложением заверенных копий документов почтовым отправлением по вышеуказанному адресу / выдать на руки при личном обращении (нужное подчеркнуть).\n\nДата: «»______ 20   г.\nПодпись: _______________ / ${f.fullName || "___________"}`
+    : `I, ${f.fullName || "___________"}, am the owner/tenant of the residential premises at the above address.\n\nPursuant to Federal Law dated 04.06.2011 No. 402-FZ, I REQUEST:\n\nPlease provide certified copies of the following documents (information) that served as the basis for charging housing and коммунal service fees for my personal account No. ${acc || "____"} for the period ${period || "____"}:\n\n1) The building management agreement with all appendices and amendments.\n\n2) Minutes of the general meetings of owners approving:\n- the amount of fees for maintenance and repair;\n- the list of services and works for common property;\n- коммунal tariffs (if applicable).\n\n3) Calculation of the fee amount with applied tariffs, consumption norms, and meter readings.\n\n4) Acts of completed works (rendered services) for maintenance and repair for the specified period.\n\n5) Information on outstanding debt (or absence of debt) with breakdown by service type.\n\n6) Other documents on the basis of which charges were made for my personal account.\n\nResponse delivery method:\nPlease send a written response with certified copies by mail to the address above / hand over in person (underline as appropriate).\n\nDate ________\nSignature ____________ / ${f.fullName || "___________"}`;
 
   return `${header}\n\n\n${title}\n\n\n${body}`.trim();
 }
@@ -1299,13 +1305,13 @@ function fullNameToShort(fullName) {
 }
 
 function buildPdfDocumentHtml(f, ru) {
-  const { periodPhrase, periodPhrase11, servicesList } = getRequestDocParts(f, ru ? 'ru' : 'en');
+  getRequestDocParts(f, ru ? 'ru' : 'en');
 
   const headerBlock = ru
     ? `<p style="margin:0 0 6px;"><strong>Кому:</strong> ${escapeHtml(f.ukName || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>От кого:</strong> ${escapeHtml(f.fullName || '___________')}</p>
+<p style="margin:0 0 6px;"><strong>От:</strong> ${escapeHtml(f.fullName || '___________')}</p>
 <p style="margin:0 0 6px;"><strong>Паспорт:</strong> серия ${escapeHtml(f.passportSeries || '____')} номер ${escapeHtml(f.passportNumber || '______')}, выдан ${escapeHtml(f.passportIssued || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>Адрес регистрации и фактического проживания:</strong> ${escapeHtml(f.address || '___________')}</p>
+<p style="margin:0 0 6px;"><strong>Адрес регистрации:</strong> ${escapeHtml(f.address || '___________')}</p>
 <p style="margin:0 0 0;"><strong>Контактный телефон:</strong> ${escapeHtml(f.phone || '___________')}  <strong>Email:</strong> ${escapeHtml(f.emailForReply || '___________')}</p>`
     : `<p style="margin:0 0 6px;"><strong>To:</strong> ${escapeHtml(f.ukName || '___________')}</p>
 <p style="margin:0 0 6px;"><strong>From:</strong> ${escapeHtml(f.fullName || '___________')}</p>
@@ -1313,26 +1319,52 @@ function buildPdfDocumentHtml(f, ru) {
 <p style="margin:0 0 6px;"><strong>Address:</strong> ${escapeHtml(f.address || '___________')}</p>
 <p style="margin:0 0 0;"><strong>Phone:</strong> ${escapeHtml(f.phone || '___________')}  <strong>Email:</strong> ${escapeHtml(f.emailForReply || '___________')}</p>`;
 
+  const acc = (f.accountNumber && String(f.accountNumber).trim()) || '';
+  const period = (f.period && String(f.period).trim()) || '';
   const bodyContent = ru
-    ? `<p style="margin:0 0 14px; line-height:1.5;">Я, ${escapeHtml(f.fullName || '___________')}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу. На основании статьи 165 Жилищного кодекса РФ и п. 31, 34-38 Постановления Правительства РФ № 416 от 15.05.2013 "О порядке осуществления деятельности по управлению многоквартирными домами", ПРОШУ:</p>
-<p style="margin:0 0 20px; line-height:1.5;">Предоставить мне в срок, установленный законодательством (не более 10 рабочих дней / 20 календарных дней согласно п. 67 Стандартов раскрытия информации), следующую информацию по моему многоквартирному дому:</p>
-<p style="margin:0 0 8px; line-height:1.5;"><strong>1. Сведения о начислениях и задолженности:</strong></p>
-<p style="margin:0 0 8px; line-height:1.5;">1.1. Имеется ли у меня задолженность по оплате жилищно-коммунальных услуг на дату составления ответа? Если да — с детализацией по видам услуг и периодам.${periodPhrase11 ? ' ' + periodPhrase11 : ''}</p>
-<p style="margin:0 0 16px; line-height:1.5;">1.2. Помесячные объемы потребленных коммунальных ресурсов по показаниям общедомовых приборов учета${periodPhrase}.</p>
-<p style="margin:0 0 8px; line-height:1.5;"><strong>2. Сведения о расходовании средств:</strong></p>
-<p style="margin:0 0 8px; line-height:1.5;">${servicesList}</p>
-<p style="margin:0 0 16px; line-height:1.5;">Сведения о заключенных договорах с подрядными организациями на выполнение работ (с указанием предмета договора и стоимости), если такие работы оплачивались за счет средств собственников.</p>
-<p style="margin:0 0 8px; line-height:1.5;"><strong>3. Сведения об управляющей организации:</strong> Режим работы, контактные телефоны аварийно-диспетчерской службы.</p>
-<p style="margin:0 0 8px; line-height:1.5;"><strong>4. Сведения о тарифах и нормативах:</strong> Действующие тарифы на коммунальные услуги и размер платы за содержание жилого помещения с расшифровкой (ставки за управление, содержание, текущий ремонт).</p>
-${(f.extraInfo && String(f.extraInfo).trim()) ? `<p style="margin:0 0 16px; line-height:1.5;"><strong>5. Иная информация:</strong> ${escapeHtml(String(f.extraInfo).trim())}.</p>` : ''}
-<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Дата: «»______ 20&nbsp;&nbsp;&nbsp;г.</span><span>Подпись: _______________ (${escapeHtml(fullNameToShort(f.fullName) || '__________')})</span></p>`
-    : `<p style="margin:0 0 14px; line-height:1.5;">I, ${escapeHtml(f.fullName || '___________')}, request the following information under Art. 165 Housing Code and Decree No. 416. 1) Charges and arrears${periodPhrase11}. 1.2) Consumption${periodPhrase}. 2) ${servicesList} 3) MC contacts. 4) Tariffs.${(f.extraInfo && String(f.extraInfo).trim()) ? ' 5) ' + escapeHtml(String(f.extraInfo).trim()) + '.' : ''}</p>
-<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Date ________</span><span>Signature ________ (${escapeHtml(fullNameToShort(f.fullName) || '__________')})</span></p>`;
+    ? `<p style="margin:0 0 14px; line-height:1.5;">Я, ${escapeHtml(f.fullName || '___________')}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу.</p>
+<p style="margin:0 0 14px; line-height:1.5;">На основании Федерального закона от 04.06.2011 № 402-ФЗ «О внесении изменений в Жилищный кодекс Российской Федерации и отдельные законодательные акты Российской Федерации» <strong>ПРОШУ</strong>:</p>
+<p style="margin:0 0 14px; line-height:1.5;">Предоставить мне заверенные копии следующих документов (сведений), послуживших основанием для начисления платы за жилищно-коммунальные услуги по моему лицевому счету № <strong>${escapeHtml(acc || '____')}</strong> за период <strong>${escapeHtml(period || '____')}</strong>:</p>
+<ol style="margin:0 0 14px 18px; padding:0; line-height:1.5;">
+  <li>Договор управления многоквартирным домом со всеми приложениями и дополнительными соглашениями.</li>
+  <li>Протоколы общих собраний собственников, на которых утверждались:
+    <ul style="margin:6px 0 0 18px; padding:0; line-height:1.5;">
+      <li>размер платы за содержание и ремонт жилого помещения;</li>
+      <li>перечень услуг и работ по содержанию и ремонту общего имущества;</li>
+      <li>тарифы на коммунальные услуги (при наличии).</li>
+    </ul>
+  </li>
+  <li>Расчет размера платы за коммунальные услуги с указанием применяемых тарифов, нормативов потребления, показаний приборов учета.</li>
+  <li>Акты выполненных работ (оказанных услуг) по содержанию и ремонту общего имущества за указанный период.</li>
+  <li>Сведения о наличии (отсутствии) задолженности по оплате жилищно-коммунальных услуг с детализацией по видам услуг.</li>
+  <li>Иные документы, на основании которых производились начисления по моему лицевому счету.</li>
+</ol>
+<p style="margin:0 0 14px; line-height:1.5;"><strong>Способ получения ответа:</strong><br>Прошу направить письменный ответ с приложением заверенных копий документов почтовым отправлением по вышеуказанному адресу / выдать на руки при личном обращении (нужное подчеркнуть).</p>
+<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Дата: «»______ 20&nbsp;&nbsp;&nbsp;г.</span><span>Подпись: _______________ / ${escapeHtml(f.fullName || '___________')}</span></p>`
+    : `<p style="margin:0 0 14px; line-height:1.5;">I, ${escapeHtml(f.fullName || '___________')}, am the owner/tenant of the residential premises at the above address.</p>
+<p style="margin:0 0 14px; line-height:1.5;">Pursuant to Federal Law dated 04.06.2011 No. 402-FZ, I <strong>REQUEST</strong>:</p>
+<p style="margin:0 0 14px; line-height:1.5;">Please provide certified copies of the following documents (information) that served as the basis for charging fees for my personal account No. <strong>${escapeHtml(acc || '____')}</strong> for the period <strong>${escapeHtml(period || '____')}</strong>:</p>
+<ol style="margin:0 0 14px 18px; padding:0; line-height:1.5;">
+  <li>The building management agreement with all appendices and amendments.</li>
+  <li>Minutes of the general meetings of owners approving:
+    <ul style="margin:6px 0 0 18px; padding:0; line-height:1.5;">
+      <li>maintenance and repair fees;</li>
+      <li>the list of services and works for common property;</li>
+      <li>communal tariffs (if applicable).</li>
+    </ul>
+  </li>
+  <li>Calculation of the fee amount with applied tariffs, consumption norms, and meter readings.</li>
+  <li>Acts of completed works (rendered services) for the specified period.</li>
+  <li>Information on outstanding debt (or absence of debt) with breakdown by service type.</li>
+  <li>Other documents on the basis of which charges were made for my personal account.</li>
+</ol>
+<p style="margin:0 0 14px; line-height:1.5;"><strong>Response delivery method:</strong><br>Please send a written response with certified copies by mail to the address above / hand over in person (underline as appropriate).</p>
+<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Date ________</span><span>Signature ____________ / ${escapeHtml(f.fullName || '___________')}</span></p>`;
 
   const headerHtml = `<div style="font-size:10pt; line-height:1.5; margin-bottom:24px; text-align:left;">${headerBlock}</div>`;
   const titleText = ru
-    ? 'ЗАПРОС о предоставлении информации, связанной с управлением многоквартирным домом (во исполнение ст. 165 ЖК РФ и Постановления Правительства РФ № 416)'
-    : 'REQUEST for information related to management of a multi-apartment building (Art. 165 Housing Code, RF Government Decree No. 416)';
+    ? 'ЗАПРОС о предоставлении документов, послуживших основанием для начисления платы за жилищно-коммунальные услуги (в соответствии с Федеральным законом № 402-ФЗ)'
+    : 'REQUEST for documents forming the basis for charges (pursuant to Federal Law No. 402-FZ)';
   const titleHtml = `<div style="font-size:11pt; font-weight:bold; margin-bottom:24px; line-height:1.4; text-align:center;">${titleText}</div>`;
   const bodyHtml = `<div style="font-size:10pt; text-align:left;">${bodyContent}</div>`;
   return headerHtml + titleHtml + bodyHtml;
@@ -1733,6 +1765,10 @@ function renderHome() {
               <div class="field">
                 <div class="stacked-label">${tForm.period}</div>
                 <input class="input" name="period" value="${state.constructorForm.period}" placeholder="${tForm.periodPlaceholder}" />
+              </div>
+              <div class="field">
+                <div class="stacked-label">${tForm.accountNumber}</div>
+                <input class="input" name="accountNumber" value="${state.constructorForm.accountNumber}" placeholder="${tForm.accountNumberPlaceholder}" />
               </div>
               <div class="field">
                 <div class="stacked-label">${tForm.services}</div>
