@@ -488,7 +488,7 @@ async function uploadBlogMedia(file) {
       const headers = { 'Content-Type': 'application/json' };
       if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
       try {
-        const res = await fetch(API_BASE_BLOG + '/api/blog-upload', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const res = await fetch(API_BASE_BLOG + '/api/blog', { method: 'POST', headers, body: JSON.stringify(payload) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
         resolve({ type: data.type || 'photo', url: data.url });

@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const BUCKET = 'blog-media';
 
 function verifyInitData(initData) {
   if (!initData || !BOT_TOKEN) return false;
@@ -108,6 +109,33 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      // upload media (merged from /api/blog-upload to reduce Vercel functions count)
+      if (body.file) {
+        const user = await resolveUserId({ body, headers: req.headers });
+        if (!user) return res.status(401).json({ error: 'Необходима авторизация' });
+        if (!(await isAdmin(supabase, user.id))) return res.status(403).json({ error: 'Только админ может загружать медиа' });
+
+        const base64 = String(body.file || '');
+        const filename = String(body.filename || 'file');
+        const type = body.type === 'video' ? 'video' : 'photo';
+        if (!base64) return res.status(400).json({ error: 'Файл не указан' });
+
+        const buf = Buffer.from(base64, 'base64');
+        const ext = filename.split('.').pop() || (type === 'video' ? 'mp4' : 'jpg');
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const { data: upload, error } = await supabase.storage.from(BUCKET).upload(path, buf, {
+          contentType: type === 'video' ? `video/${ext}` : `image/${ext}`,
+          upsert: true,
+        });
+        if (error) {
+          console.error('blog upload error:', error);
+          return res.status(500).json({ error: error.message || 'Ошибка загрузки' });
+        }
+        const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(upload.path);
+        return res.status(200).json({ url: publicUrl.publicUrl, type });
+      }
+
       if (body.postId && body.text !== undefined) {
         const user = await resolveUserId({ body, headers: req.headers });
         if (!user) return res.status(401).json({ error: 'Войдите, чтобы комментировать' });
