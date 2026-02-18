@@ -82,16 +82,17 @@ async function isAdmin(supabase, userId) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET' && req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
+  if (!['GET', 'PATCH', 'POST', 'PUT', 'DELETE'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return res.status(500).json({ error: 'Server config error' });
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const query = req.query || {};
+    const resource = (query.resource || body.resource || 'orders').toString();
     const { userId } = await resolveUserAndTelegramId({
       body: req.method === 'GET' ? { initData: query.initData } : body,
       query,
@@ -102,6 +103,64 @@ module.exports = async function handler(req, res) {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     if (!(await isAdmin(supabase, userId))) return res.status(403).json({ error: 'Доступ запрещён' });
+
+    // ===== Templates CRUD =====
+    if (resource === 'templates') {
+      if (req.method === 'GET') {
+        const { data: templates, error } = await supabase
+          .from('templates')
+          .select('id, name, description, content, is_active, sort_order, created_at, updated_at')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ templates: templates || [] });
+      }
+
+      if (req.method === 'POST') {
+        const tpl = body.template || body;
+        const name = String(tpl.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'name обязателен' });
+        const row = {
+          name,
+          description: String(tpl.description || ''),
+          content: tpl.content && typeof tpl.content === 'object' ? tpl.content : {},
+          is_active: tpl.is_active !== undefined ? !!tpl.is_active : true,
+          sort_order: Number.isFinite(tpl.sort_order) ? tpl.sort_order : 0,
+          updated_at: new Date().toISOString(),
+        };
+        const { data: created, error } = await supabase.from('templates').insert(row).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ template: created });
+      }
+
+      if (req.method === 'PUT') {
+        const id = body.id;
+        if (!id) return res.status(400).json({ error: 'id обязателен' });
+        const patch = body.template || body;
+        const update = { updated_at: new Date().toISOString() };
+        if (patch.name !== undefined) update.name = String(patch.name || '').trim();
+        if (patch.description !== undefined) update.description = String(patch.description || '');
+        if (patch.content !== undefined) update.content = patch.content && typeof patch.content === 'object' ? patch.content : {};
+        if (patch.is_active !== undefined) update.is_active = !!patch.is_active;
+        if (patch.sort_order !== undefined) update.sort_order = Number(patch.sort_order) || 0;
+        if (update.name !== undefined && !update.name) return res.status(400).json({ error: 'name не может быть пустым' });
+
+        const { data: updated, error } = await supabase.from('templates').update(update).eq('id', id).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!updated) return res.status(404).json({ error: 'Шаблон не найден' });
+        return res.status(200).json({ template: updated });
+      }
+
+      if (req.method === 'DELETE') {
+        const id = body.id || query.id;
+        if (!id) return res.status(400).json({ error: 'id обязателен' });
+        const { error } = await supabase.from('templates').delete().eq('id', id);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true });
+      }
+
+      return res.status(405).end();
+    }
 
     if (req.method === 'GET') {
       const { data: orders, error } = await supabase

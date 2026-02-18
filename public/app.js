@@ -8,7 +8,9 @@ const state = {
   documents: [],
   draft: null,
   blogPosts: [],
+  templates: [],
   constructorForm: {
+    templateId: "",
     fullName: "",
     address: "",
     passportSeries: "",
@@ -35,10 +37,12 @@ const state = {
   checkoutOrderId: null,
   isLoading: false,
   profileTab: "drafts",
+  adminTab: "orders",
   editingDraftId: null,
   editingOrderId: null,
   isAdmin: false,
   adminOrders: [],
+  adminTemplates: [],
 };
 
 // ========== AUTH (TMA + Telegram Widget → Supabase, 1 аккаунт по telegram_id) ==========
@@ -52,6 +56,81 @@ function isInTelegramWebApp() {
 async function fetchConfig() {
   const r = await fetch(API_BASE + '/api/config');
   return r.json();
+}
+
+function getBuiltInTemplates() {
+  return [
+    {
+      id: 'builtin-402',
+      name: '402‑ФЗ — документы-основания начислений',
+      description: 'Встроенный шаблон (fallback).',
+      sort_order: 0,
+      is_active: true,
+      content: {
+        version: 1,
+        title: {
+          ru: "ЗАПРОС\nо предоставлении документов, послуживших основанием для начисления платы за жилищно-коммунальные услуги\n(в соответствии с Федеральным законом № 402-ФЗ)",
+          en: "REQUEST\nfor documents forming the basis for housing and коммунal service charges\n(pursuant to Federal Law No. 402-FZ)",
+        },
+        body: {
+          ru:
+            "Я, {{fullName}}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу.\n\n" +
+            "На основании Федерального закона от 04.06.2011 № 402-ФЗ «О внесении изменений в Жилищный кодекс Российской Федерации и отдельные законодательные акты Российской Федерации» ПРОШУ:\n\n" +
+            "Предоставить мне заверенные копии следующих документов (сведений), послуживших основанием для начисления платы за жилищно-коммунальные услуги по моему лицевому счету № {{accountNumber}} за период {{period}}:\n\n" +
+            "- Договор управления многоквартирным домом со всеми приложениями и дополнительными соглашениями.\n" +
+            "- Протоколы общих собраний собственников, на которых утверждались:\n" +
+            "  - размер платы за содержание и ремонт жилого помещения;\n" +
+            "  - перечень услуг и работ по содержанию и ремонту общего имущества;\n" +
+            "  - тарифы на коммунальные услуги (при наличии).\n" +
+            "- Расчет размера платы за коммунальные услуги с указанием применяемых тарифов, нормативов потребления, показаний приборов учета.\n" +
+            "- Акты выполненных работ (оказанных услуг) по содержанию и ремонту общего имущества за указанный период.\n" +
+            "- Сведения о наличии (отсутствии) задолженности по оплате жилищно-коммунальных услуг с детализацией по видам услуг.\n" +
+            "- Иные документы, на основании которых производились начисления по моему лицевому счету.\n\n" +
+            "Способ получения ответа:\n" +
+            "Прошу направить письменный ответ с приложением заверенных копий документов почтовым отправлением по вышеуказанному адресу / выдать на руки при личном обращении (нужное подчеркнуть).\n\n" +
+            "Дата: «»______ 20   г.\n" +
+            "Подпись: _______________ / {{fullName}}",
+          en:
+            "I, {{fullName}}, am the owner/tenant of the residential premises at the above address.\n\n" +
+            "Pursuant to Federal Law dated 04.06.2011 No. 402-FZ, I REQUEST:\n\n" +
+            "Please provide certified copies of the following documents (information) that served as the basis for charging fees for my personal account No. {{accountNumber}} for the period {{period}}:\n\n" +
+            "- The building management agreement with all appendices and amendments.\n" +
+            "- Minutes of the general meetings of owners approving:\n" +
+            "  - maintenance and repair fees;\n" +
+            "  - the list of services and works for common property;\n" +
+            "  - communal tariffs (if applicable).\n" +
+            "- Calculation of the fee amount with applied tariffs, consumption norms, and meter readings.\n" +
+            "- Acts of completed works (rendered services) for the specified period.\n" +
+            "- Information on outstanding debt (or absence of debt) with breakdown by service type.\n" +
+            "- Other documents on the basis of which charges were made for my personal account.\n\n" +
+            "Response delivery method:\n" +
+            "Please send a written response with certified copies by mail to the address above / hand over in person (underline as appropriate).\n\n" +
+            "Date ________\n" +
+            "Signature ____________ / {{fullName}}",
+        },
+      },
+    },
+  ];
+}
+
+function setTemplates(list) {
+  const templates = Array.isArray(list) && list.length ? list : getBuiltInTemplates();
+  state.templates = templates;
+  const ids = new Set(templates.map((t) => String(t.id)));
+  const current = state.constructorForm.templateId ? String(state.constructorForm.templateId) : '';
+  const nextId = current && ids.has(current) ? current : String(templates[0]?.id || '');
+  if (nextId && nextId !== current) {
+    state.constructorForm = { ...state.constructorForm, templateId: nextId };
+  }
+}
+
+async function initAppConfig() {
+  try {
+    const cfg = await fetchConfig();
+    setTemplates(cfg?.templates);
+  } catch {
+    setTemplates([]);
+  }
 }
 
 async function authViaTelegram(type, payload) {
@@ -181,8 +260,12 @@ async function draftsApi(method, body = {}) {
   } else {
     throw new Error('Необходима авторизация');
   }
-  if (method === 'GET' && payload.initData) {
-    url += '?initData=' + encodeURIComponent(payload.initData);
+  if (method === 'GET') {
+    const qs = new URLSearchParams();
+    if (payload.initData) qs.set('initData', payload.initData);
+    if (payload.resource) qs.set('resource', payload.resource);
+    const s = qs.toString();
+    if (s) url += '?' + s;
   }
   const res = await fetch(url, {
     method,
@@ -321,6 +404,26 @@ async function adminOrdersApi(method, body = {}) {
 async function fetchAdminOrders() {
   const data = await adminOrdersApi('GET');
   return data.orders || [];
+}
+
+async function fetchAdminTemplates() {
+  const data = await adminOrdersApi('GET', { resource: 'templates' });
+  return data.templates || [];
+}
+
+async function createAdminTemplate(tpl) {
+  const data = await adminOrdersApi('POST', { resource: 'templates', template: tpl });
+  return data.template;
+}
+
+async function updateAdminTemplate(id, tpl) {
+  const data = await adminOrdersApi('PUT', { resource: 'templates', id, template: tpl });
+  return data.template;
+}
+
+async function deleteAdminTemplate(id) {
+  const data = await adminOrdersApi('DELETE', { resource: 'templates', id });
+  return data;
 }
 
 async function patchAdminOrderStatus(id, approved, revision_comment) {
@@ -579,6 +682,7 @@ const I18N = {
       ukAddressPlaceholder: "г. Москва, ул. Управляющая, д. 10",
       period: "Период начислений",
       periodPlaceholder: "Например: с 01.01.2025 по 31.03.2025",
+      template: "Шаблон документа",
       accountNumber: "Номер лицевого счета (необязательно)",
       accountNumberPlaceholder: "Например: 1234567890",
       services: "Услуги (отметьте нужные для п. 2, ПП РФ № 354)",
@@ -761,6 +865,8 @@ const I18N = {
       title: "Админ-панель",
       subtitle: "Все заказы пользователей. Меняйте статус: готов (можно скачать) или на доработку (с комментарием).",
       empty: "Нет заказов.",
+      tabOrders: "Заказы",
+      tabTemplates: "Шаблоны",
       statusInWork: "В работе",
       statusReady: "Готов",
       statusRevision: "На доработку",
@@ -771,6 +877,20 @@ const I18N = {
       user: "Пользователь",
       date: "Дата",
       view: "Просмотр",
+      templatesEmpty: "Нет шаблонов.",
+      createTemplate: "Создать шаблон",
+      editTemplate: "Редактировать",
+      deleteTemplate: "Удалить",
+      templateActive: "Активен",
+      templateName: "Название",
+      templateDescription: "Описание",
+      templateSortOrder: "Сортировка",
+      templateTitleRu: "Заголовок (RU)",
+      templateBodyRu: "Текст (RU)",
+      templateTitleEn: "Заголовок (EN)",
+      templateBodyEn: "Текст (EN)",
+      templateCancel: "Отмена",
+      templateSave: "Сохранить шаблон",
     },
     profile: {
       title: "Профиль",
@@ -885,6 +1005,7 @@ const I18N = {
       ukAddressPlaceholder: "Moscow, Management st. 10",
       period: "Billing period",
       periodPlaceholder: "e.g. 01.01.2025 – 31.03.2025",
+      template: "Document template",
       accountNumber: "Personal account number (optional)",
       accountNumberPlaceholder: "e.g. 1234567890",
       services: "Services (for section 2, RF Gov. Decree No. 354)",
@@ -1023,6 +1144,8 @@ const I18N = {
       title: "Admin Panel",
       subtitle: "All user orders. Change status: ready (can download) or revision (with comment).",
       empty: "No orders.",
+      tabOrders: "Orders",
+      tabTemplates: "Templates",
       statusInWork: "In progress",
       statusReady: "Ready",
       statusRevision: "Revision",
@@ -1033,6 +1156,20 @@ const I18N = {
       user: "User",
       date: "Date",
       view: "View",
+      templatesEmpty: "No templates.",
+      createTemplate: "Create template",
+      editTemplate: "Edit",
+      deleteTemplate: "Delete",
+      templateActive: "Active",
+      templateName: "Name",
+      templateDescription: "Description",
+      templateSortOrder: "Sort order",
+      templateTitleRu: "Title (RU)",
+      templateBodyRu: "Body (RU)",
+      templateTitleEn: "Title (EN)",
+      templateBodyEn: "Body (EN)",
+      templateCancel: "Cancel",
+      templateSave: "Save template",
     },
     profile: {
       title: "Profile",
@@ -1090,6 +1227,7 @@ function toggleService(key) {
 
 function clearConstructorForm() {
   state.constructorForm = {
+    templateId: "",
     fullName: "",
     address: "",
     passportSeries: "",
@@ -1267,19 +1405,41 @@ function getLetterPreviewFromData(f) {
   const lang = state.lang;
   const { ru } = getRequestDocParts(f, lang);
 
-  const title = ru
-    ? "ЗАПРОС\nо предоставлении документов, послуживших основанием для начисления платы за жилищно-коммунальные услуги\n(в соответствии с Федеральным законом № 402-ФЗ)"
-    : "REQUEST\nfor documents forming the basis for housing and коммунal service charges\n(pursuant to Federal Law No. 402-FZ)";
+  function pickTemplate(templateId) {
+    const list = Array.isArray(state.templates) && state.templates.length ? state.templates : getBuiltInTemplates();
+    const id = templateId ? String(templateId) : '';
+    return list.find((t) => String(t.id) === id) || list[0] || getBuiltInTemplates()[0];
+  }
+
+  function fillPlaceholders(s, vars) {
+    return String(s || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, k) => {
+      return vars[k] !== undefined ? String(vars[k]) : '';
+    });
+  }
+
+  const vars = {
+    fullName: (f.fullName && String(f.fullName).trim()) || "___________",
+    ukName: (f.ukName && String(f.ukName).trim()) || "___________",
+    address: (f.address && String(f.address).trim()) || "___________",
+    passportSeries: (f.passportSeries && String(f.passportSeries).trim()) || "____",
+    passportNumber: (f.passportNumber && String(f.passportNumber).trim()) || "______",
+    passportIssued: (f.passportIssued && String(f.passportIssued).trim()) || "___________",
+    phone: (f.phone && String(f.phone).trim()) || "___________",
+    emailForReply: (f.emailForReply && String(f.emailForReply).trim()) || "___________",
+    accountNumber: (f.accountNumber && String(f.accountNumber).trim()) || "____",
+    period: (f.period && String(f.period).trim()) || "____",
+  };
+
+  const tpl = pickTemplate(f.templateId || state.constructorForm.templateId);
+  const titleRaw = (tpl?.content?.title && (tpl.content.title[lang] || tpl.content.title[ru ? 'ru' : 'en'] || tpl.content.title.ru || tpl.content.title.en)) || '';
+  const bodyRaw = (tpl?.content?.body && (tpl.content.body[lang] || tpl.content.body[ru ? 'ru' : 'en'] || tpl.content.body.ru || tpl.content.body.en)) || '';
+  const title = fillPlaceholders(titleRaw, vars);
 
   const header = ru
     ? `Кому: ${f.ukName || "___________"}\nОт: ${f.fullName || "___________"}\nПаспорт: серия ${f.passportSeries || "____"} номер ${f.passportNumber || "______"}, выдан ${f.passportIssued || "___________"}\nАдрес регистрации: ${f.address || "___________"}\nКонтактный телефон: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`
     : `To: ${f.ukName || "___________"}\nFrom: ${f.fullName || "___________"}\nPassport: series ${f.passportSeries || "____"} no. ${f.passportNumber || "______"}, issued ${f.passportIssued || "___________"}\nAddress: ${f.address || "___________"}\nPhone: ${f.phone || "___________"}  Email: ${f.emailForReply || "___________"}`;
 
-  const acc = (f.accountNumber && String(f.accountNumber).trim()) || '';
-  const period = (f.period && String(f.period).trim()) || '';
-  const body = ru
-    ? `Я, ${f.fullName || "___________"}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу.\n\nНа основании Федерального закона от 04.06.2011 № 402-ФЗ «О внесении изменений в Жилищный кодекс Российской Федерации и отдельные законодательные акты Российской Федерации» ПРОШУ:\n\nПредоставить мне заверенные копии следующих документов (сведений), послуживших основанием для начисления платы за жилищно-коммунальные услуги по моему лицевому счету № ${acc || "____"} за период ${period || "____"}:\n\n1) Договор управления многоквартирным домом со всеми приложениями и дополнительными соглашениями.\n\n2) Протоколы общих собраний собственников, на которых утверждались:\n- размер платы за содержание и ремонт жилого помещения;\n- перечень услуг и работ по содержанию и ремонту общего имущества;\n- тарифы на коммунальные услуги (при наличии).\n\n3) Расчет размера платы за коммунальные услуги с указанием применяемых тарифов, нормативов потребления, показаний приборов учета.\n\n4) Акты выполненных работ (оказанных услуг) по содержанию и ремонту общего имущества за указанный период.\n\n5) Сведения о наличии (отсутствии) задолженности по оплате жилищно-коммунальных услуг с детализацией по видам услуг.\n\n6) Иные документы, на основании которых производились начисления по моему лицевому счету.\n\nСпособ получения ответа:\nПрошу направить письменный ответ с приложением заверенных копий документов почтовым отправлением по вышеуказанному адресу / выдать на руки при личном обращении (нужное подчеркнуть).\n\nДата: «»______ 20   г.\nПодпись: _______________ / ${f.fullName || "___________"}`
-    : `I, ${f.fullName || "___________"}, am the owner/tenant of the residential premises at the above address.\n\nPursuant to Federal Law dated 04.06.2011 No. 402-FZ, I REQUEST:\n\nPlease provide certified copies of the following documents (information) that served as the basis for charging housing and коммунal service fees for my personal account No. ${acc || "____"} for the period ${period || "____"}:\n\n1) The building management agreement with all appendices and amendments.\n\n2) Minutes of the general meetings of owners approving:\n- the amount of fees for maintenance and repair;\n- the list of services and works for common property;\n- коммунal tariffs (if applicable).\n\n3) Calculation of the fee amount with applied tariffs, consumption norms, and meter readings.\n\n4) Acts of completed works (rendered services) for maintenance and repair for the specified period.\n\n5) Information on outstanding debt (or absence of debt) with breakdown by service type.\n\n6) Other documents on the basis of which charges were made for my personal account.\n\nResponse delivery method:\nPlease send a written response with certified copies by mail to the address above / hand over in person (underline as appropriate).\n\nDate ________\nSignature ____________ / ${f.fullName || "___________"}`;
+  const body = fillPlaceholders(bodyRaw, vars);
 
   return `${header}\n\n\n${title}\n\n\n${body}`.trim();
 }
@@ -1305,68 +1465,84 @@ function fullNameToShort(fullName) {
 }
 
 function buildPdfDocumentHtml(f, ru) {
-  getRequestDocParts(f, ru ? 'ru' : 'en');
+  const lang = ru ? 'ru' : 'en';
+
+  function pickTemplate(templateId) {
+    const list = Array.isArray(state.templates) && state.templates.length ? state.templates : getBuiltInTemplates();
+    const id = templateId ? String(templateId) : '';
+    return list.find((t) => String(t.id) === id) || list[0] || getBuiltInTemplates()[0];
+  }
+
+  function fillPlaceholders(s, vars) {
+    return String(s || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, k) => {
+      return vars[k] !== undefined ? String(vars[k]) : '';
+    });
+  }
+
+  const vars = {
+    fullName: (f.fullName && String(f.fullName).trim()) || "___________",
+    ukName: (f.ukName && String(f.ukName).trim()) || "___________",
+    address: (f.address && String(f.address).trim()) || "___________",
+    passportSeries: (f.passportSeries && String(f.passportSeries).trim()) || "____",
+    passportNumber: (f.passportNumber && String(f.passportNumber).trim()) || "______",
+    passportIssued: (f.passportIssued && String(f.passportIssued).trim()) || "___________",
+    phone: (f.phone && String(f.phone).trim()) || "___________",
+    emailForReply: (f.emailForReply && String(f.emailForReply).trim()) || "___________",
+    accountNumber: (f.accountNumber && String(f.accountNumber).trim()) || "____",
+    period: (f.period && String(f.period).trim()) || "____",
+  };
+
+  const tpl = pickTemplate(f.templateId || state.constructorForm.templateId);
+  const titleRaw = (tpl?.content?.title && (tpl.content.title[lang] || tpl.content.title.ru || tpl.content.title.en)) || '';
+  const bodyRaw = (tpl?.content?.body && (tpl.content.body[lang] || tpl.content.body.ru || tpl.content.body.en)) || '';
+  const titleText = fillPlaceholders(titleRaw, vars);
+  const bodyText = fillPlaceholders(bodyRaw, vars);
 
   const headerBlock = ru
-    ? `<p style="margin:0 0 6px;"><strong>Кому:</strong> ${escapeHtml(f.ukName || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>От:</strong> ${escapeHtml(f.fullName || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>Паспорт:</strong> серия ${escapeHtml(f.passportSeries || '____')} номер ${escapeHtml(f.passportNumber || '______')}, выдан ${escapeHtml(f.passportIssued || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>Адрес регистрации:</strong> ${escapeHtml(f.address || '___________')}</p>
-<p style="margin:0 0 0;"><strong>Контактный телефон:</strong> ${escapeHtml(f.phone || '___________')}  <strong>Email:</strong> ${escapeHtml(f.emailForReply || '___________')}</p>`
-    : `<p style="margin:0 0 6px;"><strong>To:</strong> ${escapeHtml(f.ukName || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>From:</strong> ${escapeHtml(f.fullName || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>Passport:</strong> series ${escapeHtml(f.passportSeries || '____')} no. ${escapeHtml(f.passportNumber || '______')}, issued ${escapeHtml(f.passportIssued || '___________')}</p>
-<p style="margin:0 0 6px;"><strong>Address:</strong> ${escapeHtml(f.address || '___________')}</p>
-<p style="margin:0 0 0;"><strong>Phone:</strong> ${escapeHtml(f.phone || '___________')}  <strong>Email:</strong> ${escapeHtml(f.emailForReply || '___________')}</p>`;
+    ? `<p style="margin:0 0 6px;"><strong>Кому:</strong> ${escapeHtml(vars.ukName)}</p>
+<p style="margin:0 0 6px;"><strong>От:</strong> ${escapeHtml(vars.fullName)}</p>
+<p style="margin:0 0 6px;"><strong>Паспорт:</strong> серия ${escapeHtml(vars.passportSeries)} номер ${escapeHtml(vars.passportNumber)}, выдан ${escapeHtml(vars.passportIssued)}</p>
+<p style="margin:0 0 6px;"><strong>Адрес регистрации:</strong> ${escapeHtml(vars.address)}</p>
+<p style="margin:0 0 0;"><strong>Контактный телефон:</strong> ${escapeHtml(vars.phone)}  <strong>Email:</strong> ${escapeHtml(vars.emailForReply)}</p>`
+    : `<p style="margin:0 0 6px;"><strong>To:</strong> ${escapeHtml(vars.ukName)}</p>
+<p style="margin:0 0 6px;"><strong>From:</strong> ${escapeHtml(vars.fullName)}</p>
+<p style="margin:0 0 6px;"><strong>Passport:</strong> series ${escapeHtml(vars.passportSeries)} no. ${escapeHtml(vars.passportNumber)}, issued ${escapeHtml(vars.passportIssued)}</p>
+<p style="margin:0 0 6px;"><strong>Address:</strong> ${escapeHtml(vars.address)}</p>
+<p style="margin:0 0 0;"><strong>Phone:</strong> ${escapeHtml(vars.phone)}  <strong>Email:</strong> ${escapeHtml(vars.emailForReply)}</p>`;
 
-  const acc = (f.accountNumber && String(f.accountNumber).trim()) || '';
-  const period = (f.period && String(f.period).trim()) || '';
-  const bodyContent = ru
-    ? `<p style="margin:0 0 14px; line-height:1.5;">Я, ${escapeHtml(f.fullName || '___________')}, являюсь собственником/нанимателем жилого помещения по вышеуказанному адресу.</p>
-<p style="margin:0 0 14px; line-height:1.5;">На основании Федерального закона от 04.06.2011 № 402-ФЗ «О внесении изменений в Жилищный кодекс Российской Федерации и отдельные законодательные акты Российской Федерации» <strong>ПРОШУ</strong>:</p>
-<p style="margin:0 0 14px; line-height:1.5;">Предоставить мне заверенные копии следующих документов (сведений), послуживших основанием для начисления платы за жилищно-коммунальные услуги по моему лицевому счету № <strong>${escapeHtml(acc || '____')}</strong> за период <strong>${escapeHtml(period || '____')}</strong>:</p>
-<ol style="margin:0 0 14px 18px; padding:0; line-height:1.5;">
-  <li>Договор управления многоквартирным домом со всеми приложениями и дополнительными соглашениями.</li>
-  <li>Протоколы общих собраний собственников, на которых утверждались:
-    <ul style="margin:6px 0 0 18px; padding:0; line-height:1.5;">
-      <li>размер платы за содержание и ремонт жилого помещения;</li>
-      <li>перечень услуг и работ по содержанию и ремонту общего имущества;</li>
-      <li>тарифы на коммунальные услуги (при наличии).</li>
-    </ul>
-  </li>
-  <li>Расчет размера платы за коммунальные услуги с указанием применяемых тарифов, нормативов потребления, показаний приборов учета.</li>
-  <li>Акты выполненных работ (оказанных услуг) по содержанию и ремонту общего имущества за указанный период.</li>
-  <li>Сведения о наличии (отсутствии) задолженности по оплате жилищно-коммунальных услуг с детализацией по видам услуг.</li>
-  <li>Иные документы, на основании которых производились начисления по моему лицевому счету.</li>
-</ol>
-<p style="margin:0 0 14px; line-height:1.5;"><strong>Способ получения ответа:</strong><br>Прошу направить письменный ответ с приложением заверенных копий документов почтовым отправлением по вышеуказанному адресу / выдать на руки при личном обращении (нужное подчеркнуть).</p>
-<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Дата: «»______ 20&nbsp;&nbsp;&nbsp;г.</span><span>Подпись: _______________ / ${escapeHtml(f.fullName || '___________')}</span></p>`
-    : `<p style="margin:0 0 14px; line-height:1.5;">I, ${escapeHtml(f.fullName || '___________')}, am the owner/tenant of the residential premises at the above address.</p>
-<p style="margin:0 0 14px; line-height:1.5;">Pursuant to Federal Law dated 04.06.2011 No. 402-FZ, I <strong>REQUEST</strong>:</p>
-<p style="margin:0 0 14px; line-height:1.5;">Please provide certified copies of the following documents (information) that served as the basis for charging fees for my personal account No. <strong>${escapeHtml(acc || '____')}</strong> for the period <strong>${escapeHtml(period || '____')}</strong>:</p>
-<ol style="margin:0 0 14px 18px; padding:0; line-height:1.5;">
-  <li>The building management agreement with all appendices and amendments.</li>
-  <li>Minutes of the general meetings of owners approving:
-    <ul style="margin:6px 0 0 18px; padding:0; line-height:1.5;">
-      <li>maintenance and repair fees;</li>
-      <li>the list of services and works for common property;</li>
-      <li>communal tariffs (if applicable).</li>
-    </ul>
-  </li>
-  <li>Calculation of the fee amount with applied tariffs, consumption norms, and meter readings.</li>
-  <li>Acts of completed works (rendered services) for the specified period.</li>
-  <li>Information on outstanding debt (or absence of debt) with breakdown by service type.</li>
-  <li>Other documents on the basis of which charges were made for my personal account.</li>
-</ol>
-<p style="margin:0 0 14px; line-height:1.5;"><strong>Response delivery method:</strong><br>Please send a written response with certified copies by mail to the address above / hand over in person (underline as appropriate).</p>
-<p style="margin:28px 0 0; display:flex; justify-content:space-between; line-height:1.5;"><span>Date ________</span><span>Signature ____________ / ${escapeHtml(f.fullName || '___________')}</span></p>`;
+  function textToHtml(text) {
+    const src = String(text || '').replace(/\r\n/g, '\n').trim();
+    if (!src) return '';
+    const blocks = src.split(/\n\s*\n/g);
+
+    const html = blocks.map((block) => {
+      const lines = block.split('\n');
+      const isUl = lines.every((l) => /^\s*-\s+/.test(l));
+      const isOl = lines.every((l) => /^\s*\d+[.)]\s+/.test(l));
+
+      if (isUl) {
+        const items = lines
+          .map((l) => l.replace(/^\s*-\s+/, '').trim())
+          .filter(Boolean);
+        return `<ul style="margin:0 0 14px 18px; padding:0; line-height:1.5;">${items
+          .map((t) => `<li style="margin:0 0 6px 0;">${escapeHtml(t)}</li>`)
+          .join('')}</ul>`;
+      }
+
+      if (isOl) {
+        const items = lines.map((l) => l.replace(/^\s*\d+[.)]\s+/, '')).filter(Boolean);
+        return `<ol style="margin:0 0 14px 18px; padding:0; line-height:1.5;">${items.map((t) => `<li style="margin:0 0 6px 0;">${escapeHtml(t)}</li>`).join('')}</ol>`;
+      }
+
+      return `<p style="margin:0 0 14px; line-height:1.5;">${escapeHtml(block).replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    return html;
+  }
 
   const headerHtml = `<div style="font-size:10pt; line-height:1.5; margin-bottom:24px; text-align:left;">${headerBlock}</div>`;
-  const titleText = ru
-    ? 'ЗАПРОС о предоставлении документов, послуживших основанием для начисления платы за жилищно-коммунальные услуги (в соответствии с Федеральным законом № 402-ФЗ)'
-    : 'REQUEST for documents forming the basis for charges (pursuant to Federal Law No. 402-FZ)';
-  const titleHtml = `<div style="font-size:11pt; font-weight:bold; margin-bottom:24px; line-height:1.4; text-align:center;">${titleText}</div>`;
-  const bodyHtml = `<div style="font-size:10pt; text-align:left;">${bodyContent}</div>`;
+  const titleHtml = `<div style="font-size:11pt; font-weight:bold; margin-bottom:24px; line-height:1.4; text-align:center;">${escapeHtml(titleText).replace(/\n/g, '<br>')}</div>`;
+  const bodyHtml = `<div style="font-size:10pt; text-align:left;">${textToHtml(bodyText)}</div>`;
   return headerHtml + titleHtml + bodyHtml;
 }
 
@@ -1412,7 +1588,7 @@ function downloadOrderPdf(order) {
   document.body.appendChild(overlay);
 
   const name = (f.ukName || 'Zapros').replace(/[^a-zA-Zа-яА-Я0-9]/g, '_').slice(0, 30);
-  const filename = `Zapros_165JK_${name}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  const filename = `Zapros_402FZ_${name}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
   function runPdf() {
     requestAnimationFrame(() => {
@@ -1728,6 +1904,14 @@ function renderHome() {
           <div class="constructor-grid">
           <div class="neo-card">
             <form id="constructor-form">
+              ${Array.isArray(state.templates) && state.templates.length > 1 ? `
+              <div class="field">
+                <div class="stacked-label">${tForm.template}</div>
+                <select class="input" name="templateId">
+                  ${(state.templates || []).map(tpl => `<option value="${escapeHtml(String(tpl.id))}" ${String(tpl.id) === String(state.constructorForm.templateId) ? 'selected' : ''}>${escapeHtml(String(tpl.name || 'Template'))}</option>`).join('')}
+                </select>
+              </div>
+              ` : ''}
               <div class="field">
                 <div class="stacked-label">${tForm.fullName}</div>
                 <input class="input" name="fullName" value="${state.constructorForm.fullName}" placeholder="${tForm.fullNamePlaceholder}" />
@@ -1865,7 +2049,7 @@ function renderHome() {
   // Обработчики конструктора — делегирование на форму для надёжной работы в TMA
   const form = document.getElementById("constructor-form");
   if (form) {
-    const textFields = ["fullName", "address", "passportSeries", "passportNumber", "passportIssued", "phone", "ukName", "ukAddress", "period", "emailForReply", "extraInfo"];
+    const textFields = ["templateId", "fullName", "address", "passportSeries", "passportNumber", "passportIssued", "phone", "ukName", "ukAddress", "period", "accountNumber", "emailForReply", "extraInfo"];
     const handleInput = (e) => {
       const el = e.target;
       const name = el?.getAttribute?.("name");
@@ -2264,6 +2448,111 @@ async function deleteOrder(id) {
 
 // ========== ADMIN PAGE ==========
 
+function openTemplateEditorModal(existing) {
+  const t = I18N[state.lang].admin;
+  const tpl = existing || {
+    id: null,
+    name: '',
+    description: '',
+    is_active: true,
+    sort_order: 0,
+    content: { version: 1, title: { ru: '', en: '' }, body: { ru: '', en: '' } },
+  };
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+  const box = document.createElement('div');
+  box.className = 'neo-card';
+  box.style.cssText = 'max-width:720px;width:100%;max-height:90vh;overflow:auto;';
+
+  const titleRu = tpl.content?.title?.ru || '';
+  const bodyRu = tpl.content?.body?.ru || '';
+  const titleEn = tpl.content?.title?.en || '';
+  const bodyEn = tpl.content?.body?.en || '';
+
+  box.innerHTML = `
+    <h3 class="preview-title" style="margin-top:0">${tpl.id ? t.editTemplate : t.createTemplate}</h3>
+    <div class="field">
+      <div class="stacked-label">${t.templateName}</div>
+      <input class="input" id="tpl-name" value="${escapeHtml(tpl.name || '')}" />
+    </div>
+    <div class="field">
+      <div class="stacked-label">${t.templateDescription}</div>
+      <input class="input" id="tpl-desc" value="${escapeHtml(tpl.description || '')}" />
+    </div>
+    <div class="field" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <label class="checkbox-pill" style="margin:0">
+        <input type="checkbox" id="tpl-active" ${tpl.is_active ? 'checked' : ''} />
+        ${t.templateActive}
+      </label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="stacked-label" style="margin:0">${t.templateSortOrder}</div>
+        <input class="input" id="tpl-sort" type="number" style="width:110px" value="${Number(tpl.sort_order || 0)}" />
+      </div>
+    </div>
+    <div class="field">
+      <div class="stacked-label">${t.templateTitleRu}</div>
+      <textarea class="textarea input" id="tpl-title-ru" rows="3" placeholder="...">${escapeHtml(titleRu)}</textarea>
+    </div>
+    <div class="field">
+      <div class="stacked-label">${t.templateBodyRu}</div>
+      <textarea class="textarea input" id="tpl-body-ru" rows="10" placeholder="...">${escapeHtml(bodyRu)}</textarea>
+      <p class="small muted-text" style="margin-top:6px">Переменные: <code>{{fullName}}</code>, <code>{{ukName}}</code>, <code>{{address}}</code>, <code>{{passportSeries}}</code>, <code>{{passportNumber}}</code>, <code>{{passportIssued}}</code>, <code>{{phone}}</code>, <code>{{emailForReply}}</code>, <code>{{accountNumber}}</code>, <code>{{period}}</code></p>
+    </div>
+    <div class="field">
+      <div class="stacked-label">${t.templateTitleEn}</div>
+      <textarea class="textarea input" id="tpl-title-en" rows="3" placeholder="...">${escapeHtml(titleEn)}</textarea>
+    </div>
+    <div class="field">
+      <div class="stacked-label">${t.templateBodyEn}</div>
+      <textarea class="textarea input" id="tpl-body-en" rows="8" placeholder="...">${escapeHtml(bodyEn)}</textarea>
+    </div>
+    <div class="btn-row" style="gap:8px;flex-wrap:wrap;">
+      <button type="button" class="secondary-btn" id="tpl-cancel">${t.templateCancel}</button>
+      <button type="button" class="primary-btn" id="tpl-save">${t.templateSave}</button>
+    </div>
+  `;
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  box.querySelector('#tpl-cancel').addEventListener('click', close);
+  box.querySelector('#tpl-save').addEventListener('click', async () => {
+    const payload = {
+      name: box.querySelector('#tpl-name').value.trim(),
+      description: box.querySelector('#tpl-desc').value.trim(),
+      is_active: box.querySelector('#tpl-active').checked,
+      sort_order: parseInt(box.querySelector('#tpl-sort').value || '0', 10) || 0,
+      content: {
+        version: 1,
+        title: {
+          ru: box.querySelector('#tpl-title-ru').value || '',
+          en: box.querySelector('#tpl-title-en').value || '',
+        },
+        body: {
+          ru: box.querySelector('#tpl-body-ru').value || '',
+          en: box.querySelector('#tpl-body-en').value || '',
+        },
+      },
+    };
+    if (!payload.name) {
+      alert(state.lang === 'ru' ? 'Укажите название шаблона' : 'Enter template name');
+      return;
+    }
+    try {
+      if (tpl.id) await updateAdminTemplate(tpl.id, payload);
+      else await createAdminTemplate(payload);
+      close();
+      await initAppConfig(); // обновить список для пользователя
+      renderAdmin();
+    } catch (e) {
+      alert((state.lang === 'ru' ? 'Ошибка: ' : 'Error: ') + (e?.message || ''));
+    }
+  });
+}
+
 async function renderAdmin() {
   const t = I18N[state.lang].admin;
   applyLanguageToShell();
@@ -2283,12 +2572,19 @@ async function renderAdmin() {
     return;
   }
 
+  const tab = state.adminTab || 'orders';
   let orders = state.adminOrders;
+  let templates = state.adminTemplates;
   let loading = false;
   try {
     loading = true;
-    orders = await fetchAdminOrders();
-    state.adminOrders = orders;
+    if (tab === 'templates') {
+      templates = await fetchAdminTemplates();
+      state.adminTemplates = templates;
+    } else {
+      orders = await fetchAdminOrders();
+      state.adminOrders = orders;
+    }
   } catch (e) {
     state.isAdmin = false;
     appRoot.innerHTML = `
@@ -2329,11 +2625,84 @@ async function renderAdmin() {
           <h2 class="section-title">${t.title}</h2>
           <p class="section-subtitle">${t.subtitle}</p>
           <a href="#" class="secondary-btn" style="margin-bottom:20px;display:inline-block" onclick="window.location.hash=''; render(); return false;">&larr; ${state.lang === 'ru' ? 'На главную' : 'Back'}</a>
-          <div id="admin-orders-list"></div>
+          <div class="profile-tabs profile-tabs-split" style="margin-bottom:12px">
+            <button class="profile-tab-btn ${tab === 'orders' ? 'active' : ''}" data-tab="orders">${t.tabOrders}</button>
+            <button class="profile-tab-btn ${tab === 'templates' ? 'active' : ''}" data-tab="templates">${t.tabTemplates}</button>
+          </div>
+          <div id="admin-orders-list" style="${tab === 'orders' ? '' : 'display:none'}"></div>
+          <div id="admin-templates-list" style="${tab === 'templates' ? '' : 'display:none'}">
+            <div class="btn-row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+              <button class="secondary-btn" id="admin-create-template">${t.createTemplate}</button>
+            </div>
+            <div id="admin-templates-items"></div>
+          </div>
         </div>
       </section>
     </div>
   `;
+
+  // tabs
+  document.querySelectorAll('#admin .profile-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-tab');
+      if (!next || next === state.adminTab) return;
+      state.adminTab = next;
+      renderAdmin();
+    });
+  });
+
+  if (tab === 'templates') {
+    const itemsEl = document.getElementById('admin-templates-items');
+    const createBtn = document.getElementById('admin-create-template');
+    if (createBtn) createBtn.addEventListener('click', () => openTemplateEditorModal(null));
+
+    if (itemsEl) {
+      if (!templates || templates.length === 0) {
+        itemsEl.innerHTML = `<p class="small muted-text">${t.templatesEmpty}</p>`;
+      } else {
+        itemsEl.innerHTML = templates.map((tpl) => {
+          const activeTag = tpl.is_active ? `<span class="tag" style="background:rgba(34,197,94,0.12);color:#166534;padding:4px 8px;border-radius:6px">${t.templateActive}</span>` : '';
+          return `
+            <div class="neo-card" style="margin-bottom:12px;padding:14px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap" data-template-id="${escapeHtml(String(tpl.id))}">
+              <div style="flex:1;min-width:220px">
+                <div style="font-weight:600;margin-bottom:6px">${escapeHtml(String(tpl.name || 'Template'))} ${activeTag}</div>
+                ${tpl.description ? `<div class="small muted-text">${escapeHtml(String(tpl.description))}</div>` : ''}
+                <div class="small muted-text" style="margin-top:6px">id: ${escapeHtml(String(tpl.id))} · sort: ${escapeHtml(String(tpl.sort_order ?? 0))}</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0">
+                <button class="secondary-btn admin-tpl-edit" data-id="${escapeHtml(String(tpl.id))}">${t.editTemplate}</button>
+                <button class="secondary-btn admin-tpl-del" data-id="${escapeHtml(String(tpl.id))}" style="color:var(--danger, #c33)">${t.deleteTemplate}</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        itemsEl.querySelectorAll('.admin-tpl-edit').forEach((b) => {
+          b.addEventListener('click', () => {
+            const id = b.getAttribute('data-id');
+            const tpl = (state.adminTemplates || []).find((x) => String(x.id) === String(id));
+            if (tpl) openTemplateEditorModal(tpl);
+          });
+        });
+        itemsEl.querySelectorAll('.admin-tpl-del').forEach((b) => {
+          b.addEventListener('click', async () => {
+            const id = b.getAttribute('data-id');
+            if (!id) return;
+            if (!confirm(state.lang === 'ru' ? 'Удалить шаблон?' : 'Delete template?')) return;
+            try {
+              await deleteAdminTemplate(id);
+              state.adminTemplates = (state.adminTemplates || []).filter((x) => String(x.id) !== String(id));
+              await initAppConfig();
+              renderAdmin();
+            } catch (e) {
+              alert((state.lang === 'ru' ? 'Ошибка: ' : 'Error: ') + (e?.message || ''));
+            }
+          });
+        });
+      }
+    }
+    return;
+  }
 
   const listEl = document.getElementById('admin-orders-list');
   if (orders.length === 0) {
@@ -2973,7 +3342,7 @@ function initShell() {
 
   const hasPayment = new URLSearchParams(window.location.search).get('payment');
   if (hasPayment) showPaymentReturnLoader();
-  initAuth().then(() => {
+  Promise.all([initAppConfig(), initAuth()]).then(() => {
     if (hasPayment) applyPaymentReturn();
     else render();
   });
