@@ -2199,18 +2199,6 @@ function renderHome() {
                 return html;
               })()}
               <div class="field">
-                <div class="stacked-label">${tForm.services}</div>
-                <div class="checkbox-row">
-                  ${renderServiceCheckbox("coldWater", tForm.servicesOptions.coldWater)}
-                  ${renderServiceCheckbox("hotWater", tForm.servicesOptions.hotWater)}
-                  ${renderServiceCheckbox("wastewater", tForm.servicesOptions.wastewater)}
-                  ${renderServiceCheckbox("electricity", tForm.servicesOptions.electricity)}
-                  ${renderServiceCheckbox("gas", tForm.servicesOptions.gas)}
-                  ${renderServiceCheckbox("heating", tForm.servicesOptions.heating)}
-                  ${renderServiceCheckbox("solidWaste", tForm.servicesOptions.solidWaste)}
-                </div>
-              </div>
-              <div class="field">
                 <label class="checkbox-pill">
                   <input type="checkbox" id="with-expert" ${state.withExpert ? "checked" : ""} />
                   ${tForm.withExpert}
