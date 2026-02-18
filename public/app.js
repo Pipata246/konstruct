@@ -588,6 +588,16 @@ async function patchAdminOrderStatus(id, approved, revision_comment) {
   return data.order;
 }
 
+async function fetchAdminPricing() {
+  const data = await adminOrdersApi('GET', { resource: 'pricing' });
+  return data.pricing || { base_price_rub: 700, expert_price_rub: 2200 };
+}
+
+async function updateAdminPricing(pricing) {
+  const data = await adminOrdersApi('PUT', { resource: 'pricing', pricing });
+  return data.pricing;
+}
+
 async function checkAdminStatus() {
   try {
     await adminOrdersApi('GET');
@@ -775,8 +785,8 @@ const I18N = {
       privacy: "Политика конфиденциальности",
     },
     hero: {
-      badge: "Сервис «Конструктор официальных обращений» — запросы в УК и другие документы",
-      title: "Соберите официальный запрос в УК<br />как из конструктора",
+      badge: "Сервис «Конструктор официальных обращений» — официальные обращения и другие документы",
+      title: "Соберите обращение в Конструкторе<br />официальных обращений",
       subtitle:
         "Пошаговый конструктор помогает сформировать юридически корректное обращение: вы отвечаете на простые вопросы — сервис собирает текст и готовит PDF.",
       templateNote: "Сайт поддерживает не только шаблон «Конструктор официальных обращений», но и другие типы запросов — шаблон выбирается в форме.",
@@ -791,10 +801,10 @@ const I18N = {
         "MVP‑версия: один тип документа — «Конструктор официальных обращений», две опции тарифа и ручная проверка в админ‑панели.",
       howTitle: "Как работает «Конструкт»",
       howSteps: [
-        "Вы отвечаете на 5–7 вопросов о себе и своей УК.",
+        "Вы отвечаете на 5–7 вопросов о себе и адресате обращения.",
         "Параллельно видите черновик письма — без юр. жаргона.",
         "Выбираете тариф: самостоятельно или с проверкой эксперта.",
-        "Получаете готовый PDF и инструкции по отправке в УК.",
+        "Получаете готовый PDF и инструкции по отправке обращения.",
       ],
     },
     service: {
@@ -807,7 +817,7 @@ const I18N = {
       basePoints: [
         "Пошаговый конструктор запроса.",
         "Черновик PDF до оплаты.",
-        "Инструкция по отправке в УК.",
+        "Инструкция по отправке обращения.",
       ],
       baseButton: "Собрать запрос",
       expertBadge: "Рекомендуемый вариант",
@@ -932,8 +942,8 @@ const I18N = {
 
 <h2>2. Термины и определения</h2>
 <p><strong>Сервис</strong> — веб-сайт и мини-приложение «Конструкт», доступные в Telegram и в браузере.</p>
-<p><strong>Услуга</strong> — формирование текста официального запроса в управляющую компанию (УК) и иные документы по выбранному шаблону (в том числе по Федеральному закону № 402-ФЗ «О бухгалтерском учёте»), подготовка черновика в формате PDF, а при выборе соответствующего тарифа — юридическая проверка документа экспертом.</p>
-<p><strong>Документ</strong> — сформированный запрос в формате PDF, готовый к отправке в УК.</p>
+<p><strong>Услуга</strong> — формирование текста официального обращения по выбранному шаблону через сервис «Конструктор официальных обращений», подготовка черновика в формате PDF, а при выборе соответствующего тарифа — юридическая проверка документа экспертом.</p>
+<p><strong>Документ</strong> — сформированное обращение в формате PDF, готовое к отправке.</p>
 
 <h2>3. Предмет договора</h2>
 <p>Исполнитель обязуется оказать Пользователю Услугу в соответствии с выбранным тарифом, а Пользователь обязуется оплатить Услугу в размере и порядке, предусмотренных настоящей Офертой.</p>
@@ -956,7 +966,7 @@ const I18N = {
 <p>Возврат оплаты возможен до момента предоставления готового Документа при наличии технической возможности. Запрос направляется на <a href="mailto:practsuveren@yandex.ru">practsuveren@yandex.ru</a> или в Telegram: <a href="https://t.me/k0nstruct_bot" target="_blank" rel="noopener">@k0nstruct_bot</a>.</p>
 
 <h2>8. Ответственность</h2>
-<p>Исполнитель не несёт ответственности за использование Пользователем сформированного Документа и за действия УК. Сервис предоставляет типовой шаблон запроса; итоговое решение о направлении запроса принимает Пользователь.</p>
+<p>Исполнитель не несёт ответственности за использование Пользователем сформированного Документа и за действия получателя. Сервис предоставляет типовой шаблон обращения; итоговое решение о направлении принимает Пользователь.</p>
 
 <h2>9. Контакты</h2>
 <p>По вопросам оферты и услуг: <a href="mailto:practsuveren@yandex.ru">practsuveren@yandex.ru</a>, Telegram: <a href="https://t.me/k0nstruct_bot" target="_blank" rel="noopener">@k0nstruct_bot</a>.</p>
@@ -988,7 +998,7 @@ const I18N = {
 <h2>4. Цели обработки</h2>
 <p>Персональные данные обрабатываются в целях:</p>
 <ul>
-<li>оказания услуг по формированию запросов в УК;</li>
+<li>оказания услуг по формированию обращений через Конструктор официальных обращений;</li>
 <li>идентификации Пользователя и связи с ним;</li>
 <li>сохранения черновиков в личном кабинете;</li>
 <li>улучшения качества Сервиса.</li>
@@ -1086,6 +1096,12 @@ const I18N = {
       empty: "Нет заказов.",
       tabOrders: "Заказы",
       tabTemplates: "Шаблоны",
+      tabPricing: "Цена",
+      priceBaseLabel: "Базовый тариф (₽)",
+      priceExpertLabel: "Тариф с экспертом (₽)",
+      savePrices: "Сохранить цены",
+      pricesSaved: "Цены сохранены",
+      pricesError: "Ошибка сохранения",
       statusInWork: "В работе",
       statusReady: "Готов",
       statusRevision: "На доработку",
@@ -1115,7 +1131,7 @@ const I18N = {
       title: "Профиль",
       tabDrafts: "Черновики",
       tabOrders: "Заказы",
-      subtitle: "Сохранённые запросы в УК. Нажмите, чтобы продолжить редактирование.",
+      subtitle: "Сохранённые обращения в Конструкторе. Нажмите, чтобы продолжить редактирование.",
       empty: "Нет сохранённых черновиков.",
       ordersEmpty: "Нет заказов.",
       orderStatusNoReview: "Без проверки",
@@ -1160,8 +1176,8 @@ const I18N = {
       privacy: "Privacy policy",
     },
     hero: {
-      badge: "Official requests constructor — requests to the management company and other documents",
-      title: "Build an official request<br />to your management company",
+      badge: "Official requests constructor — official requests and other documents",
+      title: "Build an official request<br />in the Constructor",
       subtitle:
         "A step‑by‑step form helps you create a legally correct request: you answer simple questions — the service assembles the text and prepares a PDF.",
       templateNote: "The site supports not only the “Official requests constructor” template but also other request types — choose a template in the form.",
@@ -1176,7 +1192,7 @@ const I18N = {
         "MVP: one document type — “Official requests constructor”, two pricing options and manual expert review.",
       howTitle: "How Konstruct works",
       howSteps: [
-        "You answer 5–7 questions about yourself and your management company.",
+        "You answer 5–7 questions about yourself and the recipient.",
         "You see a live draft of the letter — without legal jargon.",
         "You choose a plan: self‑service or with expert review.",
         "You receive a ready PDF and instructions on how to send it.",
@@ -1317,8 +1333,8 @@ const I18N = {
 
 <h2>2. Terms and definitions</h2>
 <p><strong>Service</strong> — the Konstruct website and mini-app available in Telegram and in a browser.</p>
-<p><strong>Service provided</strong> — formation of official request text to a management company (MC) under Federal Law No. 402-FZ on accounting, preparation of a draft PDF, and (on selected plans) legal review by an expert.</p>
-<p><strong>Document</strong> — the generated request in PDF format, ready for submission to the MC.</p>
+<p><strong>Service provided</strong> — formation of official request text via the Official requests constructor, preparation of a draft PDF, and (on selected plans) legal review by an expert.</p>
+<p><strong>Document</strong> — the generated request in PDF format, ready for submission.</p>
 
 <h2>3. Subject matter</h2>
 <p>The Provider undertakes to provide the User with the Service according to the selected plan; the User undertakes to pay for the Service in the amount and manner set forth in this Offer.</p>
@@ -1427,6 +1443,12 @@ Click the cross on a pill. The variable is removed from the dictionary; in exist
       empty: "No orders.",
       tabOrders: "Orders",
       tabTemplates: "Templates",
+      tabPricing: "Pricing",
+      priceBaseLabel: "Base tariff (₽)",
+      priceExpertLabel: "Expert tariff (₽)",
+      savePrices: "Save prices",
+      pricesSaved: "Prices saved",
+      pricesError: "Error saving",
       statusInWork: "In progress",
       statusReady: "Ready",
       statusRevision: "Revision",
@@ -1456,7 +1478,7 @@ Click the cross on a pill. The variable is removed from the dictionary; in exist
       title: "Profile",
       tabDrafts: "Drafts",
       tabOrders: "Orders",
-      subtitle: "Saved requests to MC. Click to continue editing.",
+      subtitle: "Saved requests in the Constructor. Click to continue editing.",
       empty: "No saved drafts.",
       ordersEmpty: "No orders.",
       orderStatusNoReview: "Without review",
@@ -3011,12 +3033,16 @@ async function renderAdmin() {
   const tab = state.adminTab || 'orders';
   let orders = state.adminOrders;
   let templates = state.adminTemplates;
+  let pricing = state.adminPricing;
   let loading = false;
   try {
     loading = true;
     if (tab === 'templates') {
       templates = await fetchAdminTemplates();
       state.adminTemplates = templates;
+    } else if (tab === 'pricing') {
+      pricing = await fetchAdminPricing();
+      state.adminPricing = pricing;
     } else {
       orders = await fetchAdminOrders();
       state.adminOrders = orders;
@@ -3069,6 +3095,7 @@ async function renderAdmin() {
           <div class="profile-tabs profile-tabs-split" style="margin-bottom:12px">
             <button class="profile-tab-btn ${tab === 'orders' ? 'active' : ''}" data-tab="orders">${t.tabOrders}</button>
             <button class="profile-tab-btn ${tab === 'templates' ? 'active' : ''}" data-tab="templates">${t.tabTemplates}</button>
+            <button class="profile-tab-btn ${tab === 'pricing' ? 'active' : ''}" data-tab="pricing">${t.tabPricing}</button>
           </div>
           <div id="admin-orders-list" style="${tab === 'orders' ? '' : 'display:none'}"></div>
           <div id="admin-templates-list" style="${tab === 'templates' ? '' : 'display:none'}">
@@ -3076,6 +3103,19 @@ async function renderAdmin() {
               <button class="secondary-btn" id="admin-create-template">${t.createTemplate}</button>
             </div>
             <div id="admin-templates-items"></div>
+          </div>
+          <div id="admin-pricing-list" style="${tab === 'pricing' ? '' : 'display:none'}">
+            <div class="neo-card" style="max-width:400px;padding:20px">
+              <div class="field" style="margin-bottom:16px">
+                <label class="stacked-label" for="admin-price-base">${t.priceBaseLabel}</label>
+                <input type="number" min="1" step="1" class="input" id="admin-price-base" value="${escapeHtml(String((pricing && pricing.base_price_rub) || 700))}" />
+              </div>
+              <div class="field" style="margin-bottom:16px">
+                <label class="stacked-label" for="admin-price-expert">${t.priceExpertLabel}</label>
+                <input type="number" min="1" step="1" class="input" id="admin-price-expert" value="${escapeHtml(String((pricing && pricing.expert_price_rub) || 2200))}" />
+              </div>
+              <button type="button" class="primary-btn" id="admin-save-prices">${t.savePrices}</button>
+            </div>
           </div>
         </div>
       </section>
@@ -3177,6 +3217,32 @@ async function renderAdmin() {
           });
         });
       }
+    }
+    return;
+  }
+
+  if (tab === 'pricing') {
+    const saveBtn = document.getElementById('admin-save-prices');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const baseEl = document.getElementById('admin-price-base');
+        const expertEl = document.getElementById('admin-price-expert');
+        const base = parseInt(baseEl?.value, 10);
+        const expert = parseInt(expertEl?.value, 10);
+        if (!Number.isFinite(base) || base < 1 || !Number.isFinite(expert) || expert < 1) {
+          alert(t.pricesError);
+          return;
+        }
+        try {
+          await updateAdminPricing({ base_price_rub: base, expert_price_rub: expert });
+          setPricing({ base_price_rub: base, expert_price_rub: expert });
+          await initAppConfig();
+          alert(t.pricesSaved);
+          renderAdmin();
+        } catch (e) {
+          alert(t.pricesError + ': ' + (e?.message || ''));
+        }
+      });
     }
     return;
   }
