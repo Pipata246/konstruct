@@ -345,6 +345,11 @@ html {
   box-shadow: inset 2px 2px 4px rgba(163, 177, 198, 0.4);
 }
 
+/* Админка: три вкладки в одну строку */
+#admin .profile-tabs-split {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .profile-tabs-split .profile-tab-btn {
   padding: 12px 16px;
   border-radius: 10px;
